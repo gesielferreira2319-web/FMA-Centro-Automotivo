@@ -27,8 +27,9 @@ export default function Dismantling() {
     const [activeTab, setActiveTab] = useState('geral');
     const { role } = useAuth();
     const { vehicles, loading: loadingVehicles, addVehicle, updateVehicle } = useDismantling();
-    const { items: inventoryItems, loading: loadingInventory, addItem } = useInventory(true);
+    const { items: inventoryItems, loading: loadingInventory, addItem, fetchItems } = useInventory(true);
     const { fetchDismantlingSales } = useSales();
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     // EMPLOYEE VIEW: Only Counter Sales
     if (role === 'employee') {
@@ -41,7 +42,6 @@ export default function Dismantling() {
                     </div>
                 </div>
 
-                {/* Render the Sales component directly (embedded) */}
                 <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <UsedPartsSales onClose={() => { }} isStandalone={true} />
                 </div>
@@ -57,6 +57,14 @@ export default function Dismantling() {
     const [dailyFlow, setDailyFlow] = useState<any[]>([]);
     const [salesByMethod, setSalesByMethod] = useState<any[]>([]);
     const [pendingPayablesValue, setPendingPayablesValue] = useState(0);
+    const [pendingBoletos, setPendingBoletos] = useState<any[]>([]);
+
+    // Reports State
+    const [reportStats, setReportStats] = useState({
+        totalItems: 0,
+        topProducts: [] as { name: string, quantity: number, revenue: number }[],
+        allProducts: [] as { name: string, quantity: number, revenue: number }[]
+    });
 
     // Components State
     const [showNewVehicleModal, setShowNewVehicleModal] = useState(false);
@@ -90,16 +98,30 @@ export default function Dismantling() {
             const methods: Record<string, number> = {};
             const flow: Record<string, { date: string, income: number, expense: number }> = {};
 
+            // Report Vars
+            const partsMap = new Map<string, { quantity: number, revenue: number }>();
+            let totalItemsSold = 0;
+
             // Process Sales
             sales.forEach(sale => {
                 total += sale.total;
 
-                // Revenue Map (Vehicle attribution)
+                // Revenue Map (Vehicle attribution) & Report Stats
                 sale.sale_items?.forEach((item: any) => {
                     const origin = item.inventory?.origin_vehicle;
+                    const name = item.inventory?.name || 'Peça Desmanche';
+                    const rev = (item.unit_price * item.quantity);
+
                     if (origin) {
-                        revenueMap[origin] = (revenueMap[origin] || 0) + (item.unit_price * item.quantity);
+                        revenueMap[origin] = (revenueMap[origin] || 0) + rev;
                     }
+
+                    // Report Aggregation
+                    const curr = partsMap.get(name) || { quantity: 0, revenue: 0 };
+                    curr.quantity += item.quantity;
+                    curr.revenue += rev;
+                    partsMap.set(name, curr);
+                    totalItemsSold += item.quantity;
                 });
 
                 // Methods
@@ -107,16 +129,26 @@ export default function Dismantling() {
                 methods[m] = (methods[m] || 0) + sale.total;
 
                 // Daily Flow (Income)
-                const d = new Date(sale.created_at).toLocaleDateString(); // PT-BR format for grouping? better YYYY-MM-DD for sorting then fmt
-                // Let's use ISO string split for key
                 const dateKey = sale.created_at.split('T')[0];
                 if (!flow[dateKey]) flow[dateKey] = { date: dateKey, income: 0, expense: 0 };
                 flow[dateKey].income += sale.total;
             });
 
+            // Set Report Stats
+            const allProducts = Array.from(partsMap.entries()).map(([name, val]) => ({ name, ...val })).sort((a, b) => b.revenue - a.revenue);
+            setReportStats({
+                totalItems: totalItemsSold,
+                topProducts: allProducts.slice(0, 5),
+                allProducts
+            });
+
             setRealizedRevenue(total);
             setVehicleRevenueMap(revenueMap);
             setSalesByMethod(Object.entries(methods).map(([k, v]) => ({ name: k, value: v })));
+
+            // Filter Pending Boletos
+            const boletos = sales.filter(s => s.payment_method === 'Boleto' && s.payment_status !== 'pago');
+            setPendingBoletos(boletos);
 
             // Process Vehicles (Expenses)
             let pendingPayables = 0;
@@ -141,9 +173,9 @@ export default function Dismantling() {
             })));
         };
         loadSales();
-    }, [vehicles]); // Depend on vehicles to recalc expenses
+    }, [vehicles, refreshTrigger]);
 
-    // Metrics
+    // Metrics for Cards
     const totalInvested = vehicles.reduce((sum, v) => sum + Number(v.purchase_price || 0), 0);
     const potentialRevenueInventory = inventoryItems.reduce((sum, item) => sum + (Number(item.unit_price) * Number(item.quantity)), 0);
     const netCashflow = realizedRevenue - totalInvested;
@@ -211,10 +243,49 @@ export default function Dismantling() {
         }
     };
 
+    const handleSaleComplete = () => {
+        setRefreshTrigger(prev => prev + 1);
+        fetchItems();
+    };
+
+    const checkMatch = (origin: string, v: DismantlingVehicle) => {
+        if (!origin) return false;
+        const o = origin.toLowerCase();
+        const m = v.model?.toLowerCase().trim();
+        const p = v.plate?.toLowerCase().trim();
+
+        if (!m && !p) return false;
+
+        const matchModel = m ? o.includes(m) : false;
+        const matchPlate = p ? o.includes(p) : false;
+
+        // Strict Logic: If Vehicle has both Model and Plate, 
+        // we generally require matching Model to avoid mixing cars with duplicate plates.
+        if (m && p) {
+            // Exception: If part origin seems to lack plate (length heuristic), allow Model-only match.
+            // Assumption: "Model" (len N) vs "Model Plate" (len N + K). 
+            // If origin is short, it probably has no plate.
+            const seemsToLackPlate = o.length <= m.length + 3;
+
+            return matchModel && (matchPlate || seemsToLackPlate);
+        }
+
+        return matchModel || matchPlate;
+    };
+
     const vehicleParts = viewingVehicle
-        ? inventoryItems.filter(i => i.origin_vehicle?.includes(viewingVehicle.model) || (viewingVehicle.plate && i.origin_vehicle?.includes(viewingVehicle.plate)))
+        ? inventoryItems.filter(i => checkMatch(i.origin_vehicle || '', viewingVehicle))
         : [];
-    const vehicleTotalPartsValue = vehicleParts.reduce((sum, p) => sum + (p.unit_price * p.quantity), 0);
+
+    // Stats
+    const stockValue = vehicleParts.reduce((sum, p) => sum + (p.unit_price * p.quantity), 0);
+    const soldValue = viewingVehicle
+        ? salesData.reduce((sum, sale) => {
+            const vehicleSaleItems = sale.sale_items?.filter((i: any) => checkMatch(i.inventory?.origin_vehicle || '', viewingVehicle)) || [];
+            return sum + vehicleSaleItems.reduce((acc: number, i: any) => acc + (i.unit_price * i.quantity), 0);
+        }, 0)
+        : 0;
+    const vehicleTotalPartsValue = stockValue + soldValue;
 
     return (
         <div className="animate-in fade-in duration-500 pb-20">
@@ -237,11 +308,11 @@ export default function Dismantling() {
 
             {/* Tabs */}
             <div className="flex gap-4 border-b border-slate-200 dark:border-slate-700 mb-6 overflow-x-auto">
-                {['geral', 'veiculos', 'financeiro'].map((tab) => (
+                {['geral', 'veiculos', 'relatorios'].map((tab) => (
                     <button key={tab} onClick={() => setActiveTab(tab)}
                         className={`pb-2 px-4 font-medium transition-colors whitespace-nowrap capitalize ${activeTab === tab ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
                             }`}>
-                        {tab === 'veiculos' ? 'Veículos' : tab === 'geral' ? 'Visão Geral' : 'Dashboard Financeiro'}
+                        {tab === 'veiculos' ? 'Veículos' : tab === 'geral' ? 'Visão Geral' : 'Relatórios'}
                     </button>
                 ))}
             </div>
@@ -251,7 +322,7 @@ export default function Dismantling() {
             ) : (
                 <>
                     {/* FINANCE DASHBOARD (Matches Main Financial Style) */}
-                    {(activeTab === 'financeiro' || activeTab === 'geral') && (
+                    {activeTab === 'geral' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                             {/* KPI Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -315,6 +386,72 @@ export default function Dismantling() {
                                     )}
                                 </div>
                             </div>
+
+
+
+                            {/* Pending Boletos Table */}
+                            {pendingBoletos.length > 0 && (
+                                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="font-bold text-lg dark:text-white flex items-center gap-2">
+                                            <span className="material-icons-round text-orange-500">receipt_long</span>
+                                            Boletos Pendentes (A Receber)
+                                        </h3>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="text-xs text-slate-400 uppercase border-b border-slate-100 dark:border-slate-700">
+                                                <tr>
+                                                    <th className="pb-3 pl-2">Data</th>
+                                                    <th className="pb-3">Cliente</th>
+                                                    <th className="pb-3">Vencimento</th>
+                                                    <th className="pb-3 text-right pr-2">Valor</th>
+                                                    <th className="pb-3 text-center">Ações</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                                {pendingBoletos.map(boleto => (
+                                                    <tr key={boleto.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                        <td className="py-3 pl-2 text-slate-600 dark:text-slate-400">
+                                                            {new Date(boleto.created_at).toLocaleDateString('pt-BR')}
+                                                        </td>
+                                                        <td className="py-3 font-bold text-slate-700 dark:text-white">
+                                                            {boleto.clients?.name || 'Não informado'}
+                                                        </td>
+                                                        <td className="py-3">
+                                                            <span className={`text-xs font-bold ${new Date(boleto.payment_due_date) < new Date() ? 'text-rose-500' : 'text-slate-500'}`}>
+                                                                {boleto.payment_due_date ? new Date(boleto.payment_due_date).toLocaleDateString('pt-BR') : '-'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-3 text-right pr-2 font-bold text-slate-800 dark:text-slate-200">
+                                                            {boleto.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                        </td>
+                                                        <td className="py-3 text-center">
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (confirm('Confirmar recebimento deste boleto?')) {
+                                                                        // Usually we would need a function to update Sale payment status.
+                                                                        // Assuming we might need to add it to useSales or handle it here via supabase directly if needed,
+                                                                        // but useSales likely has logic. Checking useSales... 
+                                                                        // For now, alert user to go to OS or Sales list? Actually we are in Dismantling.
+                                                                        // I will assume for now we just show it. Or add direct update.
+                                                                        // Let's add basic update via direct Supabase or alert?
+                                                                        // The user asked to "see".
+                                                                        alert('Para dar baixa, acesse o painel financeiro principal ou vendas.');
+                                                                    }
+                                                                }}
+                                                                className="text-emerald-600 hover:text-emerald-800 text-xs font-bold uppercase"
+                                                            >
+                                                                Dar Baixa
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Profitable Vehicles Table */}
                             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
@@ -432,125 +569,195 @@ export default function Dismantling() {
                         </div>
                     )}
                 </>
+            )
+            }
+
+            {activeTab === 'relatorios' && (
+                <div className="space-y-6 animate-in fade-in">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <KpiCard icon="category" label="Itens Vendidos" value={reportStats.totalItems} color="indigo" />
+                        <KpiCard icon="attach_money" label="Receita de Peças" value={realizedRevenue} color="emerald" />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Top Products Chart */}
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm h-80">
+                            <h3 className="text-lg font-bold text-slate-700 dark:text-white mb-4">Top 5 Peças (Receita)</h3>
+                            <ResponsiveContainer width="100%" height="90%">
+                                <BarChart data={reportStats.topProducts} layout="vertical" margin={{ left: 40, right: 40 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.2} />
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                    <RechartsTooltip formatter={(val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} />
+                                    <Bar dataKey="revenue" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20} name="Receita" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Inventory Table */}
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden h-80 flex flex-col">
+                            <h3 className="text-lg font-bold text-slate-700 dark:text-white mb-4">Detalhamento</h3>
+                            <div className="flex-1 overflow-y-auto pr-2">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 text-slate-400 text-xs uppercase">
+                                        <tr>
+                                            <th className="py-2">Peça</th>
+                                            <th className="py-2 text-center">Qtd</th>
+                                            <th className="py-2 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
+                                        {reportStats.allProducts.map((p, i) => (
+                                            <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                                                <td className="py-2 font-medium text-slate-700 dark:text-slate-300 truncate max-w-[150px]" title={p.name}>{p.name}</td>
+                                                <td className="py-2 text-center text-slate-500">{p.quantity}</td>
+                                                <td className="py-2 text-right font-bold text-slate-700 dark:text-slate-300">{p.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Modal: New Vehicle */}
-            {showNewVehicleModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 animate-in zoom-in-95">
-                        <h3 className="text-xl font-bold mb-4 dark:text-white">Registrar Compra de Veículo</h3>
-                        <form onSubmit={handleSubmitVehicle} className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Modelo do Veículo</label>
-                                <input required type="text" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 dark:text-white outline-none focus:ring-2 focus:ring-primary"
-                                    placeholder="Ex: Fiat Uno 2010" value={newVehicle.model || ''} onChange={e => setNewVehicle({ ...newVehicle, model: e.target.value })} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+            {
+                showNewVehicleModal && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 animate-in zoom-in-95">
+                            <h3 className="text-xl font-bold mb-4 dark:text-white">Registrar Compra de Veículo</h3>
+                            <form onSubmit={handleSubmitVehicle} className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Placa</label>
-                                    <input type="text" className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 border rounded-lg p-2.5 dark:text-white uppercase"
-                                        placeholder="ABC-1234" value={newVehicle.plate || ''} onChange={e => setNewVehicle({ ...newVehicle, plate: e.target.value })} />
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Modelo do Veículo</label>
+                                    <input required type="text" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 dark:text-white outline-none focus:ring-2 focus:ring-primary"
+                                        placeholder="Ex: Fiat Uno 2010" value={newVehicle.model || ''} onChange={e => setNewVehicle({ ...newVehicle, model: e.target.value })} />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Preço Pago (R$)</label>
-                                    <input required type="number" step="0.01" className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 border rounded-lg p-2.5 dark:text-white"
-                                        placeholder="0,00" value={newVehicle.purchase_price || ''} onChange={e => setNewVehicle({ ...newVehicle, purchase_price: Number(e.target.value) })} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Placa</label>
+                                        <input type="text" className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 border rounded-lg p-2.5 dark:text-white uppercase"
+                                            placeholder="ABC-1234" value={newVehicle.plate || ''} onChange={e => setNewVehicle({ ...newVehicle, plate: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Preço Pago (R$)</label>
+                                        <input required type="number" step="0.01" className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 border rounded-lg p-2.5 dark:text-white"
+                                            placeholder="0,00" value={newVehicle.purchase_price || ''} onChange={e => setNewVehicle({ ...newVehicle, purchase_price: Number(e.target.value) })} />
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status Pagamento</label>
-                                    <select className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 border rounded-lg p-2.5 dark:text-white"
-                                        value={newVehicle.payment_status} onChange={e => setNewVehicle({ ...newVehicle, payment_status: e.target.value as any })}>
-                                        <option value="pendente">Pendente</option>
-                                        <option value="pago">Pago</option>
-                                    </select>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status Pagamento</label>
+                                        <select className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 border rounded-lg p-2.5 dark:text-white"
+                                            value={newVehicle.payment_status} onChange={e => setNewVehicle({ ...newVehicle, payment_status: e.target.value as any })}>
+                                            <option value="pendente">Pendente</option>
+                                            <option value="pago">Pago</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Método</label>
+                                        <input type="text" className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 border rounded-lg p-2.5 dark:text-white"
+                                            placeholder="Dinheiro, Pix..." value={newVehicle.payment_method || ''} onChange={e => setNewVehicle({ ...newVehicle, payment_method: e.target.value })} />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Método</label>
-                                    <input type="text" className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 border rounded-lg p-2.5 dark:text-white"
-                                        placeholder="Dinheiro, Pix..." value={newVehicle.payment_method || ''} onChange={e => setNewVehicle({ ...newVehicle, payment_method: e.target.value })} />
+                                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
+                                    <button type="button" onClick={() => setShowNewVehicleModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+                                    <button type="submit" className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark">Salvar</button>
                                 </div>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-700">
-                                <button type="button" onClick={() => setShowNewVehicleModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-                                <button type="submit" className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark">Salvar</button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Modal: Sales */}
-            {showSalesModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <UsedPartsSales onClose={() => setShowSalesModal(false)} />
-                </div>
-            )}
+            {
+                showSalesModal && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <UsedPartsSales onClose={() => setShowSalesModal(false)} onSaleComplete={handleSaleComplete} />
+                    </div>
+                )
+            }
 
             {/* Modal: Adding Part, Viewing Part - Simplified for brevity in this update, keeping functionality */}
-            {addingPartToVehicle && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
-                        <h3 className="text-xl font-bold dark:text-white mb-4">Adicionar Peça: {addingPartToVehicle.model}</h3>
-                        <form onSubmit={handleAddPart} className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome da Peça</label>
-                                <input required type="text" className="w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-2.5 dark:text-white"
-                                    value={newPart.name} onChange={e => setNewPart({ ...newPart, name: e.target.value })} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <select className="w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-2.5 dark:text-white"
-                                    value={newPart.category} onChange={e => setNewPart({ ...newPart, category: e.target.value })}>
-                                    <option value="Motor">Motor</option>
-                                    <option value="Câmbio">Câmbio</option>
-                                    <option value="Lataria">Lataria</option>
-                                    <option value="Elétrica">Elétrica</option>
-                                    <option value="Suspensão">Suspensão</option>
-                                    <option value="Interior">Interior</option>
-                                    <option value="Outros">Outros</option>
-                                </select>
-                                <input required type="number" step="0.01" className="w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-2.5 dark:text-white"
-                                    value={newPart.unit_price} onChange={e => setNewPart({ ...newPart, unit_price: e.target.value })} placeholder="Preço" />
-                            </div>
-                            <div className="flex justify-end gap-2 mt-4">
-                                <button type="button" onClick={() => setAddingPartToVehicle(null)} className="px-4 py-2 text-slate-500">Cancelar</button>
-                                <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg font-bold">Salvar</button>
-                            </div>
-                        </form>
+            {
+                addingPartToVehicle && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
+                            <h3 className="text-xl font-bold dark:text-white mb-4">Adicionar Peça: {addingPartToVehicle.model}</h3>
+                            <form onSubmit={handleAddPart} className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome da Peça</label>
+                                    <input required type="text" className="w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-2.5 dark:text-white"
+                                        value={newPart.name} onChange={e => setNewPart({ ...newPart, name: e.target.value })} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <select className="w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-2.5 dark:text-white"
+                                        value={newPart.category} onChange={e => setNewPart({ ...newPart, category: e.target.value })}>
+                                        <option value="Motor">Motor</option>
+                                        <option value="Câmbio">Câmbio</option>
+                                        <option value="Lataria">Lataria</option>
+                                        <option value="Elétrica">Elétrica</option>
+                                        <option value="Suspensão">Suspensão</option>
+                                        <option value="Interior">Interior</option>
+                                        <option value="Outros">Outros</option>
+                                    </select>
+                                    <input required type="number" step="0.01" className="w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-2.5 dark:text-white"
+                                        value={newPart.unit_price} onChange={e => setNewPart({ ...newPart, unit_price: e.target.value })} placeholder="Preço" />
+                                </div>
+                                <div className="flex justify-end gap-2 mt-4">
+                                    <button type="button" onClick={() => setAddingPartToVehicle(null)} className="px-4 py-2 text-slate-500">Cancelar</button>
+                                    <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg font-bold">Salvar</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
-            {viewingVehicle && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl p-6 h-[80vh] flex flex-col">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold dark:text-white">{viewingVehicle.model} - Peças</h3>
-                            <p className="font-bold text-green-600">Total: R$ {vehicleTotalPartsValue.toFixed(2)}</p>
-                        </div>
-                        <div className="flex-1 overflow-y-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-slate-50 dark:bg-slate-900 text-xs uppercase text-slate-500 sticky top-0">
-                                    <tr><th className="p-3">Peça</th><th className="p-3 text-right">Preço</th><th className="p-3 text-center">Qtd</th></tr>
-                                </thead>
-                                <tbody>
-                                    {vehicleParts.map(p => (
-                                        <tr key={p.id} className="border-b border-slate-100 dark:border-slate-700">
-                                            <td className="p-3 dark:text-slate-200">{p.name}</td>
-                                            <td className="p-3 text-right font-bold">R$ {p.unit_price.toFixed(2)}</td>
-                                            <td className="p-3 text-center">{p.quantity}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="flex justify-end pt-4 gap-2">
-                            <button onClick={() => setViewingVehicle(null)} className="px-4 py-2 border rounded-lg">Fechar</button>
+            {
+                viewingVehicle && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl p-6 h-[80vh] flex flex-col">
+                            <div className="flex flex-col mb-4">
+                                <div className="flex justify-between items-center">
+                                    <h3 className="text-xl font-bold dark:text-white">{viewingVehicle.model} - Peças</h3>
+                                    <p className="font-bold text-green-600">Total Geral: R$ {vehicleTotalPartsValue.toFixed(2)}</p>
+                                </div>
+                                <div className="text-xs text-slate-400 mt-1 font-mono">
+                                    Filtrando por: Model="{viewingVehicle.model}", Placa="{viewingVehicle.plate}"
+                                    <br />
+                                    (Estoque: {stockValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} +
+                                    Vendido: {soldValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-50 dark:bg-slate-900 text-xs uppercase text-slate-500 sticky top-0">
+                                        <tr><th className="p-3">Peça</th><th className="p-3 text-right">Preço</th><th className="p-3 text-center">Qtd</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {vehicleParts.map(p => (
+                                            <tr key={p.id} className="border-b border-slate-100 dark:border-slate-700">
+                                                <td className="p-3 dark:text-slate-200">
+                                                    {p.name}
+                                                    <div className="text-[10px] text-red-400 font-mono mt-0.5">Origem: {p.origin_vehicle}</div>
+                                                </td>
+                                                <td className="p-3 text-right font-bold">R$ {p.unit_price.toFixed(2)}</td>
+                                                <td className="p-3 text-center">{p.quantity}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="flex justify-end pt-4 gap-2">
+                                <button onClick={() => setViewingVehicle(null)} className="px-4 py-2 border rounded-lg">Fechar</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

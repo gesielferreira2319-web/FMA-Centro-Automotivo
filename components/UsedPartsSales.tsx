@@ -10,10 +10,11 @@ type PaymentMethod = 'Dinheiro' | 'Cartão de Crédito' | 'Cartão de Débito' |
 
 interface UsedPartsSalesProps {
     onClose: () => void;
+    onSaleComplete?: () => void;
     isStandalone?: boolean;
 }
 
-export const UsedPartsSales: React.FC<UsedPartsSalesProps> = ({ onClose, isStandalone = false }) => {
+export const UsedPartsSales: React.FC<UsedPartsSalesProps> = ({ onClose, onSaleComplete, isStandalone = false }) => {
     const { items: products, loading, fetchItems } = useInventory(true); // Peças usadas (Desmanche)
     const { createSale, loading: savingSale } = useSales();
     const { settings } = useSettings();
@@ -114,6 +115,7 @@ export const UsedPartsSales: React.FC<UsedPartsSalesProps> = ({ onClose, isStand
                 setSelectedClient(null);
                 setSaleComplete(false);
                 fetchItems();
+                if (onSaleComplete) onSaleComplete();
                 onClose(); // Optional: Close modal after sale
             }, 2000);
         }

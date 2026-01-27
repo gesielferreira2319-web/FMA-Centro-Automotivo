@@ -60,6 +60,7 @@ export default function NewServiceOrder() {
     unitPrice: 0,
     type: 'part',
   });
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Carregar dados da OS se estiver editando
   useEffect(() => {
@@ -257,7 +258,14 @@ export default function NewServiceOrder() {
       setSaving(false);
 
       if (order) {
-        navigate('/service-orders');
+        if (formData.paymentMethod === 'Boleto') {
+          alert('OS salva com sucesso! O boleto está pronto para impressão.');
+          const fullOrder = { ...order, client_name: selectedClient?.name, clients: selectedClient };
+          navigate('/service-orders/new', { state: { editingOrder: fullOrder } });
+        } else {
+          alert('Ordem de serviço salva com sucesso!');
+          navigate('/service-orders');
+        }
       } else {
         alert('Erro ao salvar ordem de serviço. Tente novamente.');
       }
@@ -787,22 +795,44 @@ export default function NewServiceOrder() {
                 {/* Lista do Estoque */}
                 {newItem.type === 'part' && inventoryItems.length > 0 && (
                   <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase mb-3">Ou selecione do estoque:</p>
+                    <div className="flex justify-between items-center mb-3">
+                      <p className="text-xs font-bold text-slate-500 uppercase">Ou selecione do estoque:</p>
+                      <div className="relative w-1/2">
+                        <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                        <input
+                          type="text"
+                          placeholder="Buscar peça..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
                     <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl divide-y divide-slate-100 dark:divide-slate-700">
-                      {inventoryItems.slice(0, 10).map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => handleSelectFromInventory(item)}
-                          className="w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex justify-between items-center"
-                        >
-                          <div>
-                            <p className="font-medium text-slate-800 dark:text-white">{item.name}</p>
-                            <p className="text-xs text-slate-500">{item.sku || 'Sem código'} • Estoque: {item.quantity}</p>
-                          </div>
-                          <span className="font-bold text-primary">R$ {item.unit_price.toFixed(2)}</span>
-                        </button>
-                      ))}
+                      {inventoryItems
+                        .filter(item =>
+                          item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+                        )
+                        .slice(0, 50)
+                        .map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleSelectFromInventory(item)}
+                            className="w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex justify-between items-center"
+                          >
+                            <div>
+                              <p className="font-medium text-slate-800 dark:text-white">{item.name}</p>
+                              <p className="text-xs text-slate-500">{item.sku || 'Sem código'} • Estoque: {item.quantity}</p>
+                            </div>
+                            <span className="font-bold text-primary">R$ {item.unit_price.toFixed(2)}</span>
+                          </button>
+                        ))}
+                      {inventoryItems.length === 0 && (
+                        <div className="p-4 text-center text-sm text-slate-500">Nenhum item encontrado.</div>
+                      )}
                     </div>
                   </div>
                 )}

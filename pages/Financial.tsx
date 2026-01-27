@@ -31,6 +31,19 @@ interface FinancialData {
         overdue90: number; // 90+ days
     };
     receivablesByClient: ClientGroup[];
+    // New Report Data
+    partsReport: {
+        totalRevenue: number;
+        totalItems: number;
+        topProducts: { name: string; quantity: number; revenue: number }[];
+        allProducts: { name: string; quantity: number; revenue: number }[];
+    };
+    servicesReport: {
+        totalRevenue: number;
+        totalJobs: number;
+        topServices: { name: string; count: number; revenue: number }[];
+        allServices: { name: string; count: number; revenue: number }[];
+    };
 }
 
 interface ClientGroup {
@@ -105,6 +118,9 @@ export default function Financial() {
     const [receivableViewMode, setReceivableViewMode] = useState<'list' | 'client'>('list');
     const [viewingReceivable, setViewingReceivable] = useState<Receivable | null>(null);
 
+    // Report Sub-tabs
+    const [reportTab, setReportTab] = useState<'dre' | 'parts' | 'services'>('dre');
+
     // Data State
     const [payables, setPayables] = useState<Payable[]>([]);
     const [receivables, setReceivables] = useState<Receivable[]>([]);
@@ -113,8 +129,10 @@ export default function Financial() {
         payables: { pendingCount: 0, pendingValue: 0, overdueCount: 0, overdueValue: 0 },
         receivables: { count: 0, value: 0 },
         salesByMethod: [], dailyFlow: [], monthlyFlow: [],
-        receivablesAging: { current: 0, overdue30: 0, overdue60: 0, overdue90: 0 }, // Init
-        receivablesByClient: [] // Init
+        receivablesAging: { current: 0, overdue30: 0, overdue60: 0, overdue90: 0 },
+        receivablesByClient: [],
+        partsReport: { totalRevenue: 0, totalItems: 0, topProducts: [], allProducts: [] },
+        servicesReport: { totalRevenue: 0, totalJobs: 0, topServices: [], allServices: [] }
     });
 
     // Form State (Modal)
@@ -139,22 +157,18 @@ export default function Financial() {
             // 1. Payables (Contas a Pagar)
             let payablesQuery = supabase.from('accounts_payable').select('*');
             if (dateRange !== 'all') {
-                // For Payables, usually we want to see ALL pending, but filter PAID by date?
-                // Or filter created_at? Or due_date?
-                // Let's filter by created_at or due_date depending on view.
-                // For simplicity in SQL-less enviroment: Fetch mostly everything reasonable or filter in memory if small.
-                // We'll fetch by created_at range for consistency.
                 payablesQuery = payablesQuery.gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
             }
             const { data: dbPayables } = await payablesQuery.order('due_date', { ascending: true });
 
-            // 2. Sales (Vendas)
-            const { data: dbSales } = await supabase.from('sales').select('*, clients(name)')
+            // 2. Sales (Vendas) - Only 'balcao' and include items
+            const { data: dbSales } = await supabase.from('sales')
+                .select('*, clients(name), sale_items(quantity, unit_price, inventory(name))')
+                .eq('sale_type', 'balcao') // Filter STORE sales only
                 .gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
 
             // 3. Service Orders (OS)
             const { data: dbOS } = await supabase.from('service_orders').select('*, clients(name)')
-                // Include all statuses to catch Boletos (Pending) etc.
                 .gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
 
             // Process Data
@@ -164,9 +178,9 @@ export default function Financial() {
                 ...(dbSales || []).map(s => ({
                     id: s.id, description: `Venda #${s.id.substring(0, 6)}`, amount: s.total,
                     type: 'venda' as const, date: s.created_at, payment_method: s.payment_method, status: 'Concluído',
-                    payment_status: 'pago' as const,
+                    payment_status: s.payment_status || 'pago',
                     // @ts-ignore
-                    client_name: s.clients?.name || 'Venda Rápida', due_date: s.created_at
+                    client_name: s.clients?.name || 'Venda Rápida', due_date: s.payment_due_date || s.created_at
                 })),
                 ...(dbOS || []).filter(o => o.payment_method || o.status === 'Concluído').map(o => ({
                     id: o.id, description: `OS #${o.order_number} - ${o.vehicle}`, amount: o.value || 0,
@@ -174,13 +188,87 @@ export default function Financial() {
                     status: o.status, payment_status: o.payment_status || 'pendente',
                     // @ts-ignore
                     client_name: o.clients?.name || o.client_name || 'Cliente', due_date: o.payment_due_date || o.created_at,
-                    vehicle: o.vehicle, plate: o.plate // New fields mapped
+                    vehicle: o.vehicle, plate: o.plate
                 }))
             ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
             // Calculate Stats
             const revenue = _receivables.reduce((sum, r) => sum + r.amount, 0);
             const expensesPaid = _payables.filter(p => p.status === 'pago').reduce((sum, p) => sum + p.amount, 0);
+
+            // --- Parts and Services Reporting Logic ---
+            const partsMap = new Map<string, { quantity: number, revenue: number }>();
+            const servicesMap = new Map<string, { count: number, revenue: number }>();
+            let totalPartsRevenue = 0;
+            let totalServicesRevenue = 0;
+            let totalItemsSold = 0;
+            let totalServiceJobs = 0;
+
+            // Process Sales Items (Parts)
+            dbSales?.forEach(sale => {
+                sale.sale_items?.forEach((item: any) => {
+                    if (item.inventory?.name) {
+                        const name = item.inventory.name;
+                        const rev = (item.unit_price * item.quantity);
+                        const curr = partsMap.get(name) || { quantity: 0, revenue: 0 };
+                        curr.quantity += item.quantity;
+                        curr.revenue += rev;
+                        partsMap.set(name, curr);
+
+                        totalPartsRevenue += rev;
+                        totalItemsSold += item.quantity;
+                    }
+                });
+            });
+
+            // Process OS Items (Parts & Services)
+            dbOS?.forEach(os => {
+                if (os.items) {
+                    try {
+                        let items: any[] = typeof os.items === 'string' ? JSON.parse(os.items) : os.items;
+                        if (!Array.isArray(items)) items = [];
+                        items.forEach(item => {
+                            if (item.type === 'part') {
+                                const name = item.name || 'Peça Indefinida';
+                                const rev = (item.unitPrice * item.qty);
+                                const curr = partsMap.get(name) || { quantity: 0, revenue: 0 };
+                                curr.quantity += item.qty;
+                                curr.revenue += rev;
+                                partsMap.set(name, curr);
+                                totalPartsRevenue += rev;
+                                totalItemsSold += item.qty;
+                            } else if (item.type === 'service') {
+                                const name = item.name || 'Serviço Indefinido';
+                                const rev = (item.unitPrice * item.qty);
+                                const curr = servicesMap.get(name) || { count: 0, revenue: 0 };
+                                curr.count += item.qty;
+                                curr.revenue += rev;
+                                servicesMap.set(name, curr);
+                                totalServicesRevenue += rev;
+                                totalServiceJobs += 1;
+                            }
+                        });
+                    } catch (e) { console.error('Error parsing OS items', e); }
+                }
+            });
+
+            // Sort Top Lists
+            const allProducts = Array.from(partsMap.entries()).map(([name, val]) => ({ name, ...val })).sort((a, b) => b.revenue - a.revenue);
+            const allServices = Array.from(servicesMap.entries()).map(([name, val]) => ({ name, ...val })).sort((a, b) => b.revenue - a.revenue);
+
+            const partsReport = {
+                totalRevenue: totalPartsRevenue,
+                totalItems: totalItemsSold,
+                topProducts: allProducts.slice(0, 5),
+                allProducts
+            };
+
+            const servicesReport = {
+                totalRevenue: totalServicesRevenue,
+                totalJobs: totalServiceJobs,
+                topServices: allServices.slice(0, 5),
+                allServices
+            };
 
             // --- Advanced Receivables Metrics ---
             const clientMap = new Map<string, ClientGroup>();
@@ -271,7 +359,9 @@ export default function Financial() {
                 dailyFlow,
                 monthlyFlow: [],
                 receivablesAging: aging,
-                receivablesByClient
+                receivablesByClient,
+                partsReport,
+                servicesReport
             });
 
         } catch (e) { console.error(e); }
@@ -637,7 +727,7 @@ export default function Financial() {
                                                     </span>
                                                 ) : (
                                                     <div className="flex items-center gap-2">
-                                                        <span className={`px-2 py-1 rounded text-xs font-bold border flex items-center gap-1 w-fit ${getStatusColor(item.status, item.due_date)}`}>
+                                                        <span className={`px-2 py-1 rounded text-xs font-bold border flex items-center gap-1 w-fit ${getStatusColor('pendente', item.due_date)}`}>
                                                             {new Date(item.due_date || '') < new Date() ? 'VENCIDO' : 'PENDENTE'}
                                                         </span>
                                                         <span className="material-icons-round text-slate-300 group-hover:text-blue-500 text-sm transition-colors">visibility</span>
@@ -784,49 +874,178 @@ export default function Financial() {
 
     const renderReports = () => (
         <div className="space-y-6 animate-in fade-in">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 className="text-lg font-bold mb-4">DRE Simplificado</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center p-3 bg-emerald-50 rounded text-emerald-900">
-                            <span>(+) Receita Operacional Bruta</span>
-                            <span className="font-bold">{formatCurrency(stats.totalRevenue)}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-rose-50 rounded text-rose-900">
-                            <span>(-) Despesas Pagas</span>
-                            <span className="font-bold">{formatCurrency(stats.totalExpenses)}</span>
-                        </div>
-                        <div className="my-2 border-t border-slate-200"></div>
-                        <div className="flex justify-between items-center p-4 bg-slate-800 text-white rounded-lg shadow">
-                            <span className="text-lg font-bold">(=) Lucro Líquido</span>
-                            <span className="text-xl font-bold">{formatCurrency(stats.netProfit)}</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 className="text-lg font-bold mb-4 text-slate-700">Contas Pagas (Histórico)</h3>
-                    <div className="overflow-y-auto max-h-64">
-                        <table className="w-full text-xs">
-                            <thead className="bg-slate-50 sticky top-0">
-                                <tr>
-                                    <th className="p-2 text-left">Desc</th>
-                                    <th className="p-2 text-right">Valor</th>
-                                    <th className="p-2 text-right">Pago em</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {payables.filter(p => p.status === 'pago').map(p => (
-                                    <tr key={p.id} className="border-b border-slate-50">
-                                        <td className="p-2 truncate max-w-[150px]">{p.description}</td>
-                                        <td className="p-2 text-right text-rose-600">- {formatCurrency(p.amount)}</td>
-                                        <td className="p-2 text-right text-slate-400">{p.paid_at ? formatDate(p.paid_at) : '-'}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            {/* Tabs */}
+            <div className="flex bg-slate-100 p-1 rounded-lg w-fit">
+                <button onClick={() => setReportTab('dre')}
+                    className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${reportTab === 'dre' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Visão Geral (DRE)
+                </button>
+                <button onClick={() => setReportTab('parts')}
+                    className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${reportTab === 'parts' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Peças (Loja)
+                </button>
+                <button onClick={() => setReportTab('services')}
+                    className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${reportTab === 'services' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Serviços
+                </button>
             </div>
+
+            {reportTab === 'dre' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 className="text-lg font-bold mb-4">DRE Simplificado</h3>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center p-3 bg-emerald-50 rounded text-emerald-900">
+                                <span>(+) Receita Operacional Bruta</span>
+                                <span className="font-bold">{formatCurrency(stats.totalRevenue)}</span>
+                            </div>
+                            <div className="flex justify-between items-center p-3 bg-rose-50 rounded text-rose-900">
+                                <span>(-) Despesas Pagas</span>
+                                <span className="font-bold">{formatCurrency(stats.totalExpenses)}</span>
+                            </div>
+                            <div className="my-2 border-t border-slate-200"></div>
+                            <div className="flex justify-between items-center p-4 bg-slate-800 text-white rounded-lg shadow">
+                                <span className="font-bold">(=) Resultado Líquido</span>
+                                <span className="font-bold text-xl">{formatCurrency(stats.netProfit)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {reportTab === 'parts' && (
+                <div className="space-y-6 animate-in fade-in">
+                    {/* Parts KPIs */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                                <span className="material-icons-round">category</span>
+                            </div>
+                            <div>
+                                <p className="text-sm text-slate-500 font-bold uppercase">Itens Vendidos</p>
+                                <p className="text-2xl font-bold text-slate-800">{stats.partsReport.totalItems}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                <span className="material-icons-round">attach_money</span>
+                            </div>
+                            <div>
+                                <p className="text-sm text-slate-500 font-bold uppercase">Receita de Peças</p>
+                                <p className="text-2xl font-bold text-slate-800">{formatCurrency(stats.partsReport.totalRevenue)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Top Products Chart */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-80">
+                            <h3 className="text-lg font-bold text-slate-700 mb-4">Top 5 Peças (Receita)</h3>
+                            <ResponsiveContainer width="100%" height="90%">
+                                <BarChart data={stats.partsReport.topProducts} layout="vertical" margin={{ left: 40, right: 40 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.2} />
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10 }} />
+                                    <RechartsTooltip formatter={(val: number) => formatCurrency(val)} />
+                                    <Bar dataKey="revenue" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20} name="Receita" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Inventory Table */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm overflow-hidden h-80 flex flex-col">
+                            <h3 className="text-lg font-bold text-slate-700 mb-4">Detalhamento</h3>
+                            <div className="flex-1 overflow-y-auto pr-2">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="sticky top-0 bg-white border-b border-slate-100 text-slate-400 text-xs uppercase">
+                                        <tr>
+                                            <th className="py-2">Peça</th>
+                                            <th className="py-2 text-center">Qtd</th>
+                                            <th className="py-2 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {stats.partsReport.allProducts.map((p, i) => (
+                                            <tr key={i} className="hover:bg-slate-50">
+                                                <td className="py-2 font-medium text-slate-700 truncate max-w-[150px]" title={p.name}>{p.name}</td>
+                                                <td className="py-2 text-center text-slate-500">{p.quantity}</td>
+                                                <td className="py-2 text-right font-bold text-slate-700">{formatCurrency(p.revenue)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {reportTab === 'services' && (
+                <div className="space-y-6 animate-in fade-in">
+                    {/* Services KPIs */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                <span className="material-icons-round">handyman</span>
+                            </div>
+                            <div>
+                                <p className="text-sm text-slate-500 font-bold uppercase">Serviços Realizados</p>
+                                <p className="text-2xl font-bold text-slate-800">{stats.servicesReport.totalJobs}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                <span className="material-icons-round">attach_money</span>
+                            </div>
+                            <div>
+                                <p className="text-sm text-slate-500 font-bold uppercase">Receita de Serviços</p>
+                                <p className="text-2xl font-bold text-slate-800">{formatCurrency(stats.servicesReport.totalRevenue)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Top Services Chart */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-80">
+                            <h3 className="text-lg font-bold text-slate-700 mb-4">Top 5 Serviços (Receita)</h3>
+                            <ResponsiveContainer width="100%" height="90%">
+                                <BarChart data={stats.servicesReport.topServices} layout="vertical" margin={{ left: 40, right: 40 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.2} />
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10 }} />
+                                    <RechartsTooltip formatter={(val: number) => formatCurrency(val)} />
+                                    <Bar dataKey="revenue" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} name="Receita" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Services Table */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm overflow-hidden h-80 flex flex-col">
+                            <h3 className="text-lg font-bold text-slate-700 mb-4">Detalhamento</h3>
+                            <div className="flex-1 overflow-y-auto pr-2">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="sticky top-0 bg-white border-b border-slate-100 text-slate-400 text-xs uppercase">
+                                        <tr>
+                                            <th className="py-2">Serviço</th>
+                                            <th className="py-2 text-center">Qtd</th>
+                                            <th className="py-2 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {stats.servicesReport.allServices.map((p, i) => (
+                                            <tr key={i} className="hover:bg-slate-50">
+                                                <td className="py-2 font-medium text-slate-700 truncate max-w-[150px]" title={p.name}>{p.name}</td>
+                                                <td className="py-2 text-center text-slate-500">{p.count}</td>
+                                                <td className="py-2 text-right font-bold text-slate-700">{formatCurrency(p.revenue)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 

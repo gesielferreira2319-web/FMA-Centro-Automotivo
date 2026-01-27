@@ -8,7 +8,7 @@ export default function Inventory() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [paymentFilter, setPaymentFilter] = useState('');
+
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -17,7 +17,6 @@ export default function Inventory() {
     unit_price: 0,
     cost_price: 0,
     supplier_name: '',
-    payment_status: 'pendente' as 'a_vista' | 'faturado' | 'pendente',
     due_date: '',
   });
   const [saving, setSaving] = useState(false);
@@ -29,8 +28,7 @@ export default function Inventory() {
       item.supplier_name?.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = !categoryFilter || item.category === categoryFilter;
     const matchesStatus = !statusFilter || item.status === statusFilter;
-    const matchesPayment = !paymentFilter || item.payment_status === paymentFilter;
-    return matchesSearch && matchesCategory && matchesStatus && matchesPayment;
+    return matchesSearch && matchesCategory && matchesStatus;
   });
 
   const openAddModal = () => {
@@ -43,7 +41,7 @@ export default function Inventory() {
       unit_price: 0,
       cost_price: 0,
       supplier_name: '',
-      payment_status: 'pendente',
+
       due_date: '',
     });
     setShowAddModal(true);
@@ -59,7 +57,7 @@ export default function Inventory() {
       unit_price: item.unit_price,
       cost_price: item.cost_price || 0,
       supplier_name: item.supplier_name || '',
-      payment_status: item.payment_status || 'pendente',
+
       due_date: item.due_date || '',
     });
     setShowAddModal(true);
@@ -156,21 +154,7 @@ export default function Inventory() {
             <span className="absolute right-3 top-1/2 -translate-y-1/2 material-icons-round text-slate-400 pointer-events-none">filter_list</span>
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-          <div className="relative">
-            <select
-              value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value)}
-              className="w-full pl-4 pr-10 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 appearance-none focus:ring-secondary outline-none dark:text-white"
-            >
-              <option value="">Status Pagamento</option>
-              <option value="a_vista">À Vista</option>
-              <option value="faturado">Faturado</option>
-              <option value="pendente">Pendente</option>
-            </select>
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 material-icons-round text-slate-400 pointer-events-none">payments</span>
-          </div>
-        </div>
+
       </section>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
@@ -223,7 +207,7 @@ export default function Inventory() {
                   <th className="px-4 py-4 font-semibold">Venda</th>
                   <th className="px-4 py-4 font-semibold">Margem</th>
                   <th className="px-4 py-4 font-semibold">Fornecedor</th>
-                  <th className="px-4 py-4 font-semibold">Pagamento</th>
+
                   <th className="px-4 py-4 font-semibold">Status</th>
                   <th className="px-4 py-4 font-semibold text-center">Ações</th>
                 </tr>
@@ -272,14 +256,7 @@ export default function Inventory() {
                     <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400 max-w-[120px] truncate" title={item.supplier_name || ''}>
                       {item.supplier_name || '-'}
                     </td>
-                    <td className="px-4 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${item.payment_status === 'a_vista' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700' :
-                        item.payment_status === 'faturado' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700' :
-                          'bg-orange-100 dark:bg-orange-900/30 text-orange-700'
-                        }`}>
-                        {item.payment_status === 'a_vista' ? 'À Vista' : item.payment_status === 'faturado' ? 'Faturado' : 'Pendente'}
-                      </span>
-                    </td>
+
                     <td className="px-4 py-4">
                       <div className={`flex items-center gap-1 ${item.status === 'Estoque Baixo' ? 'text-orange-500' : item.status === 'Esgotado' ? 'text-red-500' : 'text-emerald-500'}`}>
                         {item.status === 'Estoque Baixo' || item.status === 'Esgotado' ? <span className="material-icons-round text-sm">warning</span> : <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}

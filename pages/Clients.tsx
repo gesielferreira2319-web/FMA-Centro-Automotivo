@@ -94,7 +94,7 @@ export default function Clients() {
         // Buscar vendas do cliente
         const { data: sales } = await supabase
             .from('sales')
-            .select('*')
+            .select('*, sale_items(*, inventory(name))')
             .eq('client_id', client.id)
             .order('created_at', { ascending: false });
 
@@ -402,8 +402,8 @@ export default function Clients() {
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); toggleStatus(client); }}
                                                 className={`mt-1 text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5 w-fit transition-colors ${client.status === 'Ativo'
-                                                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200'
-                                                        : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200'
+                                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200'
+                                                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-200'
                                                     }`}
                                             >
                                                 <span className={`w-1.5 h-1.5 rounded-full ${client.status === 'Ativo' ? 'bg-green-600' : 'bg-red-600'}`}></span>
@@ -650,13 +650,29 @@ export default function Clients() {
                                                 {history.sales.map((sale: any) => (
                                                     <div key={sale.id} className="p-4 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-200 dark:border-slate-700">
                                                         <div className="flex justify-between items-start mb-2">
-                                                            <div>
+                                                            <div className="flex-1">
                                                                 <p className="font-bold text-slate-800 dark:text-white">Venda - {sale.sale_type === 'balcao' ? 'Balcão' : 'Desmanche'}</p>
-                                                                <p className="text-xs text-slate-500">{sale.payment_method}</p>
+
+                                                                {/* Lista de Itens */}
+                                                                {sale.sale_items && sale.sale_items.length > 0 && (
+                                                                    <div className="mt-2 mb-2 space-y-1">
+                                                                        {sale.sale_items.map((item: any, idx: number) => (
+                                                                            <div key={idx} className="text-sm text-slate-600 dark:text-slate-300 flex justify-between">
+                                                                                <span>{item.inventory?.name || `Item #${item.inventory_id?.substring(0, 8) || '???'}`} {(item.quantity > 1) ? `(${item.quantity}x)` : ''}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+
+                                                                <div className="flex items-center gap-2 mt-2">
+                                                                    <span className="text-xs font-bold text-slate-500 uppercase bg-slate-200 dark:bg-slate-600 px-2 py-0.5 rounded">
+                                                                        {sale.payment_method}
+                                                                    </span>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <div className="flex justify-between items-end">
-                                                            <p className="text-sm text-slate-600 dark:text-slate-400">{formatDate(sale.created_at)}</p>
+                                                        <div className="flex justify-between items-end border-t border-slate-200 dark:border-slate-600 pt-2 mt-2">
+                                                            <p className="text-sm text-slate-500 dark:text-slate-400">{formatDate(sale.created_at)}</p>
                                                             <p className="font-bold text-green-600 dark:text-green-400">R$ {sale.total.toFixed(2)}</p>
                                                         </div>
                                                     </div>

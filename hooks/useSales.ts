@@ -106,6 +106,7 @@ export function useSales() {
             .select(`
                 id,
                 total,
+                payment_method,
                 created_at,
                 sale_items (
                     id,
