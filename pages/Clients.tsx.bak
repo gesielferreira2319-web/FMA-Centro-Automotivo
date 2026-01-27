@@ -1,0 +1,773 @@
+import React, { useState } from 'react';
+import { useClients, Client } from '../contexts/ClientContext';
+import { supabase } from '../lib/supabase';
+
+interface ClientHistory {
+    sales: any[];
+    serviceOrders: any[];
+}
+
+export default function Clients() {
+    const { clients, loading, addClient, updateClient, deleteClient } = useClients();
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [showModal, setShowModal] = useState(false);
+    const [editingClient, setEditingClient] = useState<Client | null>(null);
+    const [formData, setFormData] = useState({
+        name: '',
+        phone: '',
+        cpf_cnpj: '',
+        email: '',
+        vehicle: '',
+    });
+    const [saving, setSaving] = useState(false);
+
+    // Estados para histórico
+    const [showHistory, setShowHistory] = useState(false);
+    const [historyClient, setHistoryClient] = useState<Client | null>(null);
+    const [history, setHistory] = useState<ClientHistory>({ sales: [], serviceOrders: [] });
+    const [loadingHistory, setLoadingHistory] = useState(false);
+
+    const filteredClients = clients.filter(client => {
+        const matchesSearch = !search ||
+            client.name.toLowerCase().includes(search.toLowerCase()) ||
+            client.phone?.includes(search) ||
+            client.cpf_cnpj?.includes(search);
+
+        const matchesStatus = !statusFilter || client.status === statusFilter;
+
+        return matchesSearch && matchesStatus;
+    });
+
+    const openNewModal = () => {
+        setEditingClient(null);
+        setFormData({ name: '', phone: '', cpf_cnpj: '', email: '', vehicle: '' });
+        setShowModal(true);
+    };
+
+    const openEditModal = (client: Client) => {
+        setEditingClient(client);
+        setFormData({
+            name: client.name,
+            phone: client.phone || '',
+            cpf_cnpj: client.cpf_cnpj || '',
+            email: client.email || '',
+            vehicle: client.vehicle || '',
+        });
+        setShowModal(true);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSaving(true);
+
+        if (editingClient) {
+            await updateClient(editingClient.id, formData);
+        } else {
+            await addClient(formData);
+        }
+
+        setSaving(false);
+        setShowModal(false);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (confirm('Tem certeza que deseja excluir este cliente?')) {
+            await deleteClient(id);
+        }
+    };
+
+    const toggleStatus = async (client: Client) => {
+        const newStatus = client.status === 'Ativo' ? 'Inativo' : 'Ativo';
+        await updateClient(client.id, { status: newStatus });
+    };
+
+    const loadClientHistory = async (client: Client) => {
+        setHistoryClient(client);
+        setShowHistory(true);
+        setLoadingHistory(true);
+
+        // Buscar vendas do cliente
+        const { data: sales } = await supabase
+            .from('sales')
+            .select('*')
+            .eq('client_id', client.id)
+            .order('created_at', { ascending: false });
+
+        // Buscar ordens de serviço do cliente
+        const { data: serviceOrders } = await supabase
+            .from('service_orders')
+            .select('*')
+            .eq('client_id', client.id)
+            .order('created_at', { ascending: false });
+
+        setHistory({
+            sales: sales || [],
+            serviceOrders: serviceOrders || []
+        });
+        setLoadingHistory(false);
+    };
+
+    const formatDate = (dateStr: string) => {
+        return new Date(dateStr).toLocaleDateString('pt-BR');
+    };
+
+    if (loading) {
+        return (
+            <div className="animate-in fade-in duration-500 flex items-center justify-center h-64">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-slate-500">Carregando clientes...</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="animate-in fade-in duration-500">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                <div>
+                    <h2 className="text-3xl font-display font-bold text-primary dark:text-white">Clientes</h2>
+                    <p className="text-slate-500 dark:text-slate-400">Gerenciamento da base de clientes e veículos.</p>
+                </div>
+                <button
+                    onClick={openNewModal}
+                    className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg font-semibold shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 w-fit"
+                >
+                    <span className="material-icons-round">person_add</span>
+                    Novo Cliente
+                </button>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="relative md:col-span-2">
+                        <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Buscar por nome, CPF ou telefone..."
+                            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none dark:text-white"
+                        />
+                    </div>
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white"
+                    >
+                        <option value="">Todos os Clientes</option>
+                        <option value="Ativo">Ativos</option>
+                        <option value="Inativo">Inativos</option>
+                    </select>
+                </div>
+
+                {filteredClients.length === 0 ? (
+                    <div className="p-12 text-center">
+                        <span className="material-icons-round text-6xl text-slate-300 dark:text-slate-600 mb-4">people_outline</span>
+                        <p className="text-slate-500 dark:text-slate-400">{search ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}</p>
+                        {!search && (
+                            <button
+                                onClick={openNewModal}
+                                className="mt-4 text-primary font-bold hover:underline"
+                            >
+                                Cadastrar primeiro cliente
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                        {filteredClients.map(client => (
+                            <div key={client.id} className="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-5 border border-slate-200 dark:border-slate-700 hover:border-primary dark:hover:border-primary transition-colors group cursor-pointer relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                    <button
+                                        onClick={() => openEditModal(client)}
+                                        className="text-slate-400 hover:text-primary p-1"
+                                    >
+                                        <span className="material-icons-round text-sm">edit</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(client.id)}
+                                        className="text-slate-400 hover:text-red-500 p-1"
+                                    >
+                                        <span className="material-icons-round text-sm">delete</span>
+                                    </button>
+                                </div>
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 flex items-center justify-center text-lg font-bold text-slate-600 dark:text-slate-200">
+                                        {client.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-slate-800 dark:text-white">{client.name}</h3>
+                                        <button
+                                            onClick={() => toggleStatus(client)}
+                                            className="text-xs text-slate-500 flex items-center gap-1 hover:underline"
+                                        >
+                                            <span className={`w-2 h-2 rounded-full ${client.status === 'Ativo' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                            {client.status}
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                    {client.phone && (
+                                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                            <span className="material-icons-round text-sm opacity-70">phone</span>
+                                            {client.phone}
+                                        </div>
+                                    )}
+                                    {client.cpf_cnpj && (
+                                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                            <span className="material-icons-round text-sm opacity-70">badge</span>
+                                            {client.cpf_cnpj}
+                                        </div>
+                                    )}
+                                    {client.vehicle && (
+                                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                            <span className="material-icons-round text-sm opacity-70">directions_car</span>
+                                            {client.vehicle}
+                                        </div>
+                                    )}
+                                    {client.email && (
+                                        <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                            <span className="material-icons-round text-sm opacity-70">email</span>
+                                            {client.email}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                                    <button
+                                        onClick={() => loadClientHistory(client)}
+                                        className="text-xs font-bold text-primary dark:text-blue-400 hover:underline"
+                                    >
+                                        Ver Histórico
+                                    </button>
+                                    {client.phone && (
+                                        <a
+                                            href={`https://wa.me/55${client.phone.replace(/\D/g, '')}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                                        >
+                                            <span className="material-icons-round text-lg">chat</span>
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Modal de Novo/Editar Cliente */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-xl font-bold text-slate-800 dark:text-white">
+                                    {editingClient ? 'Editar Cliente' : 'Novo Cliente'}
+                                </h3>
+                                <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600">
+                                    <span className="material-icons-round">close</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase">Nome *</label>
+                                <input
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    required
+                                    className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                                    placeholder="Nome completo"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Telefone</label>
+                                    <input
+                                        type="text"
+                                        value={formData.phone}
+                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                        className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                                        placeholder="(00) 00000-0000"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">CPF/CNPJ</label>
+                                    <input
+                                        type="text"
+                                        value={formData.cpf_cnpj}
+                                        onChange={(e) => setFormData({ ...formData, cpf_cnpj: e.target.value })}
+                                        className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                                        placeholder="000.000.000-00"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase">Email</label>
+                                <input
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                                    placeholder="email@exemplo.com"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase">Veículo</label>
+                                <input
+                                    type="text"
+                                    value={formData.vehicle}
+                                    onChange={(e) => setFormData({ ...formData, vehicle: e.target.value })}
+                                    className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                                    placeholder="Marca Modelo Ano"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={saving || !formData.name}
+                                className="w-full py-4 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                            >
+                                {saving ? (
+                                    <>
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                        Salvando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="material-icons-round">check</span>
+                                        {editingClient ? 'Salvar Alterações' : 'Cadastrar Cliente'}
+                                    </>
+                                )}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Histórico */}
+            {showHistory && historyClient && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-200 dark:border-slate-700 bg-primary text-white">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-xl font-bold">Histórico de {historyClient.name}</h3>
+                                    <p className="text-sm opacity-90">{historyClient.phone}</p>
+                                </div>
+                                <button onClick={() => setShowHistory(false)} className="text-white/70 hover:text-white">
+                                    <span className="material-icons-round">close</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                            {loadingHistory ? (
+                                <div className="text-center py-12">
+                                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                                    <p className="text-slate-500">Carregando histórico...</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {/* Ordens de Serviço */}
+                                    <div>
+                                        <h4 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                                            <span className="material-icons-round text-primary">build</span>
+                                            Ordens de Serviço ({history.serviceOrders.length})
+                                        </h4>
+                                        {history.serviceOrders.length === 0 ? (
+                                            <p className="text-slate-500 text-sm text-center py-8">Nenhuma ordem de serviço encontrada</p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {history.serviceOrders.map((os: any) => (
+                                                    <div key={os.id} className="p-4 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-200 dark:border-slate-700">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <div>
+                                                                <p className="font-bold text-slate-800 dark:text-white">OS #{os.order_number}</p>
+                                                                <p className="text-xs text-slate-500">{os.plate} • {os.vehicle || 'Sem veículo'}</p>
+                                                            </div>
+                                                            <span className={`text-xs px-2 py-1 rounded-lg font-bold ${os.status === 'Concluído' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                                os.status === 'Em Andamento' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                                    'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                                                }`}>
+                                                                {os.status}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-end">
+                                                            <p className="text-sm text-slate-600 dark:text-slate-400">{formatDate(os.created_at)}</p>
+                                                            <p className="font-bold text-primary dark:text-blue-400">R$ {(os.value || 0).toFixed(2)}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Vendas */}
+                                    <div>
+                                        <h4 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                                            <span className="material-icons-round text-primary">shopping_cart</span>
+                                            Vendas de Peças ({history.sales.length})
+                                        </h4>
+                                        {history.sales.length === 0 ? (
+                                            <p className="text-slate-500 text-sm text-center py-8">Nenhuma venda encontrada</p>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {history.sales.map((sale: any) => (
+                                                    <div key={sale.id} className="p-4 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-200 dark:border-slate-700">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <div>
+                                                                <p className="font-bold text-slate-800 dark:text-white">Venda - {sale.sale_type === 'balcao' ? 'Balcão' : 'Desmanche'}</p>
+                                                                <p className="text-xs text-slate-500">{sale.payment_method}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex justify-between items-end">
+                                                            <p className="text-sm text-slate-600 dark:text-slate-400">{formatDate(sale.created_at)}</p>
+                                                            <p className="font-bold text-green-600 dark:text-green-400">R$ {sale.total.toFixed(2)}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Resumo Total */}
+                                    <div className="p-5 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border border-primary/20">
+                                        <h4 className="font-bold text-slate-800 dark:text-white mb-3">Resumo Total</h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <p className="text-sm text-slate-500">Total em OS</p>
+                                                <p className="text-xl font-bold text-slate-800 dark:text-white">
+                                                    R$ {history.serviceOrders.reduce((sum: number, os: any) => sum + (os.value || 0), 0).toFixed(2)}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-sm text-slate-500">Total em Vendas</p>
+                                                <p className="text-xl font-bold text-slate-800 dark:text-white">
+                                                    R$ {history.sales.reduce((sum: number, sale: any) => sum + sale.total, 0).toFixed(2)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+const [statusFilter, setStatusFilter] = useState('');
+const [showModal, setShowModal] = useState(false);
+const [editingClient, setEditingClient] = useState<Client | null>(null);
+const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    cpf_cnpj: '',
+    email: '',
+    vehicle: '',
+});
+const [saving, setSaving] = useState(false);
+
+const filteredClients = clients.filter(client => {
+    const matchesSearch = !search ||
+        client.name.toLowerCase().includes(search.toLowerCase()) ||
+        client.phone?.includes(search) ||
+        client.cpf_cnpj?.includes(search);
+
+    const matchesStatus = !statusFilter || client.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+});
+
+const openNewModal = () => {
+    setEditingClient(null);
+    setFormData({ name: '', phone: '', cpf_cnpj: '', email: '', vehicle: '' });
+    setShowModal(true);
+};
+
+const openEditModal = (client: Client) => {
+    setEditingClient(client);
+    setFormData({
+        name: client.name,
+        phone: client.phone || '',
+        cpf_cnpj: client.cpf_cnpj || '',
+        email: client.email || '',
+        vehicle: client.vehicle || '',
+    });
+    setShowModal(true);
+};
+
+const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    if (editingClient) {
+        await updateClient(editingClient.id, formData);
+    } else {
+        await addClient(formData);
+    }
+
+    setSaving(false);
+    setShowModal(false);
+};
+
+const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este cliente?')) {
+        await deleteClient(id);
+    }
+};
+
+const toggleStatus = async (client: Client) => {
+    const newStatus = client.status === 'Ativo' ? 'Inativo' : 'Ativo';
+    await updateClient(client.id, { status: newStatus });
+};
+
+if (loading) {
+    return (
+        <div className="animate-in fade-in duration-500 flex items-center justify-center h-64">
+            <div className="text-center">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-slate-500">Carregando clientes...</p>
+            </div>
+        </div>
+    );
+}
+
+return (
+    <div className="animate-in fade-in duration-500">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div>
+                <h2 className="text-3xl font-display font-bold text-primary dark:text-white">Clientes</h2>
+                <p className="text-slate-500 dark:text-slate-400">Gerenciamento da base de clientes e veículos.</p>
+            </div>
+            <button
+                onClick={openNewModal}
+                className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg font-semibold shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 w-fit"
+            >
+                <span className="material-icons-round">person_add</span>
+                Novo Cliente
+            </button>
+        </div>
+
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="relative md:col-span-2">
+                    <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Buscar por nome, CPF ou telefone..."
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary outline-none dark:text-white"
+                    />
+                </div>
+                <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none dark:text-white"
+                >
+                    <option value="">Todos os Clientes</option>
+                    <option value="Ativo">Ativos</option>
+                    <option value="Inativo">Inativos</option>
+                </select>
+            </div>
+
+            {filteredClients.length === 0 ? (
+                <div className="p-12 text-center">
+                    <span className="material-icons-round text-6xl text-slate-300 dark:text-slate-600 mb-4">people_outline</span>
+                    <p className="text-slate-500 dark:text-slate-400">{search ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}</p>
+                    {!search && (
+                        <button
+                            onClick={openNewModal}
+                            className="mt-4 text-primary font-bold hover:underline"
+                        >
+                            Cadastrar primeiro cliente
+                        </button>
+                    )}
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                    {filteredClients.map(client => (
+                        <div key={client.id} className="bg-slate-50 dark:bg-slate-700/30 rounded-xl p-5 border border-slate-200 dark:border-slate-700 hover:border-primary dark:hover:border-primary transition-colors group cursor-pointer relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                <button
+                                    onClick={() => openEditModal(client)}
+                                    className="text-slate-400 hover:text-primary p-1"
+                                >
+                                    <span className="material-icons-round text-sm">edit</span>
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(client.id)}
+                                    className="text-slate-400 hover:text-red-500 p-1"
+                                >
+                                    <span className="material-icons-round text-sm">delete</span>
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700 flex items-center justify-center text-lg font-bold text-slate-600 dark:text-slate-200">
+                                    {client.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 dark:text-white">{client.name}</h3>
+                                    <button
+                                        onClick={() => toggleStatus(client)}
+                                        className="text-xs text-slate-500 flex items-center gap-1 hover:underline"
+                                    >
+                                        <span className={`w-2 h-2 rounded-full ${client.status === 'Ativo' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                        {client.status}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                                {client.phone && (
+                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <span className="material-icons-round text-sm opacity-70">phone</span>
+                                        {client.phone}
+                                    </div>
+                                )}
+                                {client.cpf_cnpj && (
+                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <span className="material-icons-round text-sm opacity-70">badge</span>
+                                        {client.cpf_cnpj}
+                                    </div>
+                                )}
+                                {client.vehicle && (
+                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <span className="material-icons-round text-sm opacity-70">directions_car</span>
+                                        {client.vehicle}
+                                    </div>
+                                )}
+                                {client.email && (
+                                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                                        <span className="material-icons-round text-sm opacity-70">email</span>
+                                        {client.email}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                                <button className="text-xs font-bold text-primary dark:text-blue-400 hover:underline">Ver Histórico</button>
+                                {client.phone && (
+                                    <a
+                                        href={`https://wa.me/55${client.phone.replace(/\D/g, '')}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                                    >
+                                        <span className="material-icons-round text-lg">chat</span>
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+
+        {/* Modal de Novo/Editar Cliente */}
+        {showModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-slate-800 dark:text-white">
+                                {editingClient ? 'Editar Cliente' : 'Novo Cliente'}
+                            </h3>
+                            <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600">
+                                <span className="material-icons-round">close</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase">Nome *</label>
+                            <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                required
+                                className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                                placeholder="Nome completo"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase">Telefone</label>
+                                <input
+                                    type="text"
+                                    value={formData.phone}
+                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                                    placeholder="(00) 00000-0000"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase">CPF/CNPJ</label>
+                                <input
+                                    type="text"
+                                    value={formData.cpf_cnpj}
+                                    onChange={(e) => setFormData({ ...formData, cpf_cnpj: e.target.value })}
+                                    className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                                    placeholder="000.000.000-00"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase">Email</label>
+                            <input
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                                placeholder="email@exemplo.com"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase">Veículo</label>
+                            <input
+                                type="text"
+                                value={formData.vehicle}
+                                onChange={(e) => setFormData({ ...formData, vehicle: e.target.value })}
+                                className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                                placeholder="Marca Modelo Ano"
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={saving || !formData.name}
+                            className="w-full py-4 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:brightness-110 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                        >
+                            {saving ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    Salvando...
+                                </>
+                            ) : (
+                                <>
+                                    <span className="material-icons-round">check</span>
+                                    {editingClient ? 'Salvar Alterações' : 'Cadastrar Cliente'}
+                                </>
+                            )}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        )}
+    </div>
+);
+}
