@@ -3,16 +3,20 @@ import { CustomerSelector } from '../components/CustomerSelector';
 import { Client } from '../contexts/ClientContext';
 import { useInventory, InventoryItem } from '../hooks/useInventory';
 import { useSales, CartItem } from '../hooks/useSales';
+import { useSettings } from '../hooks/useSettings';
+import { printBoleto } from '../utils/orderPrint';
 
-type PaymentMethod = 'Dinheiro' | 'Cartão de Crédito' | 'Cartão de Débito' | 'PIX' | null;
+type PaymentMethod = 'Dinheiro' | 'Cartão de Crédito' | 'Cartão de Débito' | 'PIX' | 'Boleto' | null;
 
 export default function NewPartsSales() {
   const { items: products, loading, fetchItems } = useInventory(false); // Peças novas
   const { createSale, loading: savingSale } = useSales();
+  const { settings } = useSettings();
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<(CartItem & { name: string })[]>([]);
   const [showCheckout, setShowCheckout] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
+  const [dueDate, setDueDate] = useState('');
   const [saleComplete, setSaleComplete] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
@@ -62,18 +66,42 @@ export default function NewPartsSales() {
   const handleFinalizeSale = async () => {
     if (!paymentMethod || !selectedClient) return;
 
+    if (paymentMethod === 'Boleto' && !dueDate) {
+      alert('Selecione a data de vencimento para o boleto.');
+      return;
+    }
+
     const sale = await createSale(
       selectedClient.id,
       paymentMethod,
       cart,
-      'balcao'
+      'balcao',
+      paymentMethod === 'Boleto' ? 'pendente' : 'pago',
+      paymentMethod === 'Boleto' ? dueDate : null
     );
 
     if (sale) {
+      if (paymentMethod === 'Boleto') {
+        printBoleto({
+          company_name: settings.company_name,
+          cnpj: settings.cnpj,
+          address: settings.address,
+          pix_key: settings.pix_key || 'Chave não configurada',
+          pix_key_type: settings.pix_key_type || 'CPF',
+          amount: total,
+          due_date: dueDate,
+          client_name: selectedClient.name,
+          client_doc: selectedClient.cpf_cnpj || 'Não informado',
+          description: 'Venda Balcão (Peças Novas)',
+          created_at: new Date().toISOString(),
+          id: sale.id
+        });
+      }
       setSaleComplete(true);
       setTimeout(() => {
         setCart([]);
         setPaymentMethod(null);
+        setDueDate('');
         setSelectedClient(null);
         setSaleComplete(false);
         setShowCheckout(false);
@@ -127,8 +155,8 @@ export default function NewPartsSales() {
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-bold text-slate-800 dark:text-white group-hover:text-primary transition-colors">{product.name}</h3>
                       <span className={`text-xs font-bold px-2 py-1 rounded-md ${product.quantity === 0 ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
-                          product.quantity <= 5 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600' :
-                            'bg-green-100 dark:bg-green-900/30 text-green-600'
+                        product.quantity <= 5 ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600' :
+                          'bg-green-100 dark:bg-green-900/30 text-green-600'
                         }`}>
                         Estoque: {product.quantity}
                       </span>
@@ -243,22 +271,36 @@ export default function NewPartsSales() {
 
                   <p className="text-sm font-bold text-slate-500 mb-3 uppercase">Forma de Pagamento</p>
                   <div className="grid grid-cols-2 gap-3 mb-6">
-                    {(['Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'PIX'] as PaymentMethod[]).map((method) => (
+                    {(['Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'PIX', 'Boleto'] as PaymentMethod[]).map((method) => (
                       <button
                         key={method}
                         onClick={() => setPaymentMethod(method)}
                         className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === method
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-primary/50'
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-primary/50'
                           }`}
                       >
                         <span className="material-icons-round">
-                          {method === 'Dinheiro' ? 'payments' : method === 'PIX' ? 'qr_code' : 'credit_card'}
+                          {method === 'Dinheiro' ? 'payments' : method === 'PIX' ? 'qr_code' : method === 'Boleto' ? 'request_quote' : 'credit_card'}
                         </span>
                         <span className="text-xs font-bold">{method}</span>
                       </button>
                     ))}
                   </div>
+
+                  {paymentMethod === 'Boleto' && (
+                    <div className="mb-6 animate-in fade-in slide-in-from-top-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase">Data de Vencimento</label>
+                      <input
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        className="w-full mt-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none text-slate-800 dark:text-slate-200"
+                        required
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">O boleto será gerado com a chave PIX configurada.</p>
+                    </div>
+                  )}
 
                   <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl mb-6">
                     <div className="flex justify-between items-center">

@@ -3,8 +3,10 @@ import { CustomerSelector } from './CustomerSelector'; // Assuming it's in compo
 import { Client } from '../contexts/ClientContext';
 import { useInventory, InventoryItem } from '../hooks/useInventory';
 import { useSales, CartItem } from '../hooks/useSales';
+import { useSettings } from '../hooks/useSettings';
+import { printBoleto } from '../utils/orderPrint';
 
-type PaymentMethod = 'Dinheiro' | 'Cartão de Crédito' | 'Cartão de Débito' | 'PIX' | null;
+type PaymentMethod = 'Dinheiro' | 'Cartão de Crédito' | 'Cartão de Débito' | 'PIX' | 'Boleto' | null;
 
 interface UsedPartsSalesProps {
     onClose: () => void;
@@ -14,10 +16,12 @@ interface UsedPartsSalesProps {
 export const UsedPartsSales: React.FC<UsedPartsSalesProps> = ({ onClose, isStandalone = false }) => {
     const { items: products, loading, fetchItems } = useInventory(true); // Peças usadas (Desmanche)
     const { createSale, loading: savingSale } = useSales();
+    const { settings } = useSettings();
     const [search, setSearch] = useState('');
     const [cart, setCart] = useState<(CartItem & { name: string })[]>([]);
     // removed showCheckout state
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
+    const [dueDate, setDueDate] = useState('');
     const [saleComplete, setSaleComplete] = useState(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
@@ -70,18 +74,43 @@ export const UsedPartsSales: React.FC<UsedPartsSalesProps> = ({ onClose, isStand
             return;
         }
 
+        if (paymentMethod === 'Boleto' && !dueDate) {
+            alert('Selecione a data de vencimento para o boleto.');
+            return;
+        }
+
         const sale = await createSale(
             selectedClient.id,
             paymentMethod,
             cart,
-            'desmanche'
+            'desmanche',
+            paymentMethod === 'Boleto' ? 'pendente' : 'pago',
+            paymentMethod === 'Boleto' ? dueDate : null
         );
 
         if (sale) {
+            if (paymentMethod === 'Boleto') {
+                printBoleto({
+                    company_name: settings.company_name,
+                    cnpj: settings.cnpj,
+                    address: settings.address,
+                    pix_key: settings.pix_key || 'Chave não configurada',
+                    pix_key_type: settings.pix_key_type || 'CPF',
+                    amount: total,
+                    due_date: dueDate,
+                    client_name: selectedClient.name,
+                    client_doc: selectedClient.cpf_cnpj || 'Não informado',
+                    description: 'Venda Balcão (Peças Usadas)',
+                    created_at: new Date().toISOString(),
+                    id: sale.id
+                });
+            }
+
             setSaleComplete(true);
             setTimeout(() => {
                 setCart([]);
                 setPaymentMethod(null);
+                setDueDate('');
                 setSelectedClient(null);
                 setSaleComplete(false);
                 fetchItems();
@@ -97,6 +126,7 @@ export const UsedPartsSales: React.FC<UsedPartsSalesProps> = ({ onClose, isStand
         { method: 'PIX', icon: 'qr_code_2', label: 'PIX' },
         { method: 'Cartão de Crédito', icon: 'credit_card', label: 'Crédito' },
         { method: 'Cartão de Débito', icon: 'credit_card', label: 'Débito' },
+        { method: 'Boleto', icon: 'request_quote', label: 'Boleto' },
     ];
 
     return (
@@ -218,7 +248,7 @@ export const UsedPartsSales: React.FC<UsedPartsSalesProps> = ({ onClose, isStand
 
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Forma de Pagamento</label>
-                                <div className="grid grid-cols-4 gap-1">
+                                <div className="grid grid-cols-5 gap-1">
                                     {paymentOptions.map((opt) => (
                                         <button
                                             key={opt.method}
@@ -234,6 +264,21 @@ export const UsedPartsSales: React.FC<UsedPartsSalesProps> = ({ onClose, isStand
                                         </button>
                                     ))}
                                 </div>
+
+                                {paymentMethod === 'Boleto' && (
+                                    <div className="mt-3 animate-in fade-in slide-in-from-top-2">
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Data de Vencimento</label>
+                                        <input
+                                            type="date"
+                                            value={dueDate}
+                                            onChange={(e) => setDueDate(e.target.value)}
+                                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                                            required
+                                        />
+                                        <p className="text-[10px] text-slate-400 mt-1">O boleto será gerado com a chave PIX configurada.</p>
+                                    </div>
+                                )}
+
                             </div>
                         </div>
 

@@ -32,7 +32,9 @@ export function useSales() {
         clientId: string | null,
         paymentMethod: string,
         items: CartItem[],
-        saleType: 'balcao' | 'desmanche' = 'balcao'
+        saleType: 'balcao' | 'desmanche' = 'balcao',
+        paymentStatus: 'pago' | 'pendente' = 'pago',
+        paymentDueDate: string | null = null
     ): Promise<Sale | null> => {
         setLoading(true);
 
@@ -46,6 +48,8 @@ export function useSales() {
                 payment_method: paymentMethod,
                 total,
                 sale_type: saleType,
+                payment_status: paymentStatus,
+                payment_due_date: paymentDueDate
             })
             .select()
             .single();

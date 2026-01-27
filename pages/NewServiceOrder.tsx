@@ -4,7 +4,8 @@ import { useServiceOrders, ServiceOrder } from '../hooks/useServiceOrders';
 import { useClients, Client } from '../contexts/ClientContext';
 import { useInventory } from '../hooks/useInventory';
 import { CustomerSelector } from '../components/CustomerSelector';
-import { printOrder as printOrderUtil, downloadOrder, sendOrderToWhatsApp } from '../utils/orderPrint';
+import { printOrder as printOrderUtil, downloadOrder, sendOrderToWhatsApp, printBoleto } from '../utils/orderPrint';
+import { useSettings } from '../hooks/useSettings';
 
 interface ServiceItem {
   id: number;
@@ -20,6 +21,7 @@ export default function NewServiceOrder() {
   const location = useLocation();
   const { addOrder, updateOrder } = useServiceOrders();
   const { items: inventoryItems } = useInventory(false);
+  const { settings } = useSettings();
   const [saving, setSaving] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [vehiclePhoto, setVehiclePhoto] = useState<string | null>(null);
@@ -303,6 +305,23 @@ export default function NewServiceOrder() {
     sendOrderToWhatsApp(buildOrderForPrint(), selectedClient?.phone);
   };
 
+  const handlePrintBoleto = () => {
+    printBoleto({
+      company_name: settings.company_name,
+      cnpj: settings.cnpj,
+      address: settings.address,
+      pix_key: settings.pix_key || 'Chave não configurada',
+      pix_key_type: settings.pix_key_type || 'CPF',
+      amount: total || formData.value,
+      due_date: formData.boletoExpiration,
+      client_name: selectedClient?.name || 'Cliente',
+      client_doc: selectedClient?.cpf_cnpj || 'Não informado',
+      description: `Ordem de Serviço #${editingOrder?.order_number || ''}`,
+      created_at: editingOrder?.created_at || new Date().toISOString(),
+      id: editingOrder?.order_number || '-'
+    });
+  };
+
   return (
     <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -323,6 +342,19 @@ export default function NewServiceOrder() {
             <span className="material-icons-round text-lg">arrow_back</span>
             Voltar
           </button>
+
+          {isEditing && formData.paymentMethod === 'Boleto' && (
+            <button
+              type="button"
+              onClick={handlePrintBoleto}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
+              title="Imprimir Boleto PIX"
+            >
+              <span className="material-icons-round text-lg">qr_code_2</span>
+              <span className="hidden sm:inline">Boleto PIX</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handlePrint}
@@ -662,121 +694,123 @@ export default function NewServiceOrder() {
       </form>
 
       {/* Modal Adicionar Item */}
-      {showAddItemModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white">Adicionar Item</h3>
-                <button onClick={() => setShowAddItemModal(false)} className="text-slate-400 hover:text-slate-600">
-                  <span className="material-icons-round">close</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              {/* Tabs */}
-              <div className="flex gap-2 mb-6">
-                <button
-                  type="button"
-                  onClick={() => setNewItem({ ...newItem, type: 'part' })}
-                  className={`flex-1 py-3 rounded-lg font-bold transition-all ${newItem.type === 'part' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}
-                >
-                  <span className="material-icons-round mr-1 text-sm">inventory_2</span>
-                  Peça
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNewItem({ ...newItem, type: 'service' })}
-                  className={`flex-1 py-3 rounded-lg font-bold transition-all ${newItem.type === 'service' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}
-                >
-                  <span className="material-icons-round mr-1 text-sm">build</span>
-                  Mão de Obra
-                </button>
-              </div>
-
-              {/* Formulário Manual */}
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase">Nome do Item *</label>
-                  <input
-                    type="text"
-                    value={newItem.name}
-                    onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                    className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
-                    placeholder={newItem.type === 'part' ? 'Ex: Pastilha de Freio' : 'Ex: Troca de Óleo'}
-                  />
+      {
+        showAddItemModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-bold text-slate-800 dark:text-white">Adicionar Item</h3>
+                  <button onClick={() => setShowAddItemModal(false)} className="text-slate-400 hover:text-slate-600">
+                    <span className="material-icons-round">close</span>
+                  </button>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+              </div>
+
+              <div className="p-6">
+                {/* Tabs */}
+                <div className="flex gap-2 mb-6">
+                  <button
+                    type="button"
+                    onClick={() => setNewItem({ ...newItem, type: 'part' })}
+                    className={`flex-1 py-3 rounded-lg font-bold transition-all ${newItem.type === 'part' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}
+                  >
+                    <span className="material-icons-round mr-1 text-sm">inventory_2</span>
+                    Peça
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewItem({ ...newItem, type: 'service' })}
+                    className={`flex-1 py-3 rounded-lg font-bold transition-all ${newItem.type === 'service' ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}
+                  >
+                    <span className="material-icons-round mr-1 text-sm">build</span>
+                    Mão de Obra
+                  </button>
+                </div>
+
+                {/* Formulário Manual */}
+                <div className="space-y-4 mb-6">
                   <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase">Código</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Nome do Item *</label>
                     <input
                       type="text"
-                      value={newItem.code}
-                      onChange={(e) => setNewItem({ ...newItem, code: e.target.value })}
+                      value={newItem.name}
+                      onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
                       className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
-                      placeholder="Opcional"
+                      placeholder={newItem.type === 'part' ? 'Ex: Pastilha de Freio' : 'Ex: Troca de Óleo'}
                     />
                   </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase">Quantidade</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={newItem.qty}
-                      onChange={(e) => setNewItem({ ...newItem, qty: parseInt(e.target.value) || 1 })}
-                      className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
-                    />
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase">Código</label>
+                      <input
+                        type="text"
+                        value={newItem.code}
+                        onChange={(e) => setNewItem({ ...newItem, code: e.target.value })}
+                        className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                        placeholder="Opcional"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase">Quantidade</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={newItem.qty}
+                        onChange={(e) => setNewItem({ ...newItem, qty: parseInt(e.target.value) || 1 })}
+                        className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-500 uppercase">Preço Unit. (R$) *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={newItem.unitPrice}
+                        onChange={(e) => setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) || 0 })}
+                        className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                        placeholder="0,00"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase">Preço Unit. (R$) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={newItem.unitPrice}
-                      onChange={(e) => setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) || 0 })}
-                      className="w-full mt-1 px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary dark:text-white"
-                      placeholder="0,00"
-                    />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddItem}
+                    className="w-full py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+                  >
+                    <span className="material-icons-round text-sm">add</span>
+                    Adicionar ao Orçamento
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAddItem}
-                  className="w-full py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
-                >
-                  <span className="material-icons-round text-sm">add</span>
-                  Adicionar ao Orçamento
-                </button>
-              </div>
 
-              {/* Lista do Estoque */}
-              {newItem.type === 'part' && inventoryItems.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase mb-3">Ou selecione do estoque:</p>
-                  <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl divide-y divide-slate-100 dark:divide-slate-700">
-                    {inventoryItems.slice(0, 10).map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => handleSelectFromInventory(item)}
-                        className="w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex justify-between items-center"
-                      >
-                        <div>
-                          <p className="font-medium text-slate-800 dark:text-white">{item.name}</p>
-                          <p className="text-xs text-slate-500">{item.sku || 'Sem código'} • Estoque: {item.quantity}</p>
-                        </div>
-                        <span className="font-bold text-primary">R$ {item.unit_price.toFixed(2)}</span>
-                      </button>
-                    ))}
+                {/* Lista do Estoque */}
+                {newItem.type === 'part' && inventoryItems.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase mb-3">Ou selecione do estoque:</p>
+                    <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl divide-y divide-slate-100 dark:divide-slate-700">
+                      {inventoryItems.slice(0, 10).map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleSelectFromInventory(item)}
+                          className="w-full p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex justify-between items-center"
+                        >
+                          <div>
+                            <p className="font-medium text-slate-800 dark:text-white">{item.name}</p>
+                            <p className="text-xs text-slate-500">{item.sku || 'Sem código'} • Estoque: {item.quantity}</p>
+                          </div>
+                          <span className="font-bold text-primary">R$ {item.unit_price.toFixed(2)}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }

@@ -21,15 +21,156 @@ export interface OrderData {
     delivery_date?: string;
     notes?: string;
     vehicle_photo?: string;
+    payment_method?: string;
+    payment_due_date?: string;
+}
+
+export interface BoletoData {
+    company_name: string;
+    cnpj: string;
+    address: string;
+    pix_key: string;
+    pix_key_type: string;
+    amount: number;
+    due_date: string;
+    client_name: string;
+    client_doc: string;
+    description: string;
+    created_at: string;
+    id: string | number;
 }
 
 const formatDate = (dateStr: string): string => {
+    if (!dateStr) return '-';
     return new Date(dateStr).toLocaleDateString('pt-BR');
 };
 
-const formatDateTime = (): string => {
-    return new Date().toLocaleString('pt-BR');
-};
+const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+}
+
+/**
+ * Gera o HTML do Boleto/Recibo PIX
+ */
+export const generateBoletoHTML = (data: BoletoData): string => {
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Fatura/Recibo #${data.id}</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; }
+                body { padding: 40px; max-width: 800px; margin: 0 auto; background: #fff; }
+                .boleto-container { border: 2px solid #000; padding: 20px; }
+                .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
+                .company-info h1 { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+                .company-info p { font-size: 12px; }
+                .doc-title { text-align: right; }
+                .doc-title h2 { font-size: 24px; font-weight: bold; text-transform: uppercase; }
+                .doc-title p { font-size: 14px; font-weight: bold; margin-top: 5px; }
+                
+                .row { display: flex; margin-bottom: 15px; }
+                .col { flex: 1; padding-right: 20px; }
+                .label { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #666; margin-bottom: 3px; }
+                .value { font-size: 14px; font-weight: bold; border-bottom: 1px dotted #ccc; padding-bottom: 2px; width: 100%; display: block; }
+                
+                .pix-box { border: 2px dashed #000; padding: 20px; text-align: center; margin: 30px 0; background: #f9f9f9; }
+                .pix-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+                .pix-key { font-size: 20px; font-weight: bold; padding: 10px; background: #fff; border: 1px solid #ddd; margin: 10px 0; word-break: break-all; }
+                .pix-inst { font-size: 12px; }
+                
+                .total-box { background: #000; color: #fff; padding: 10px; text-align: right; margin-top: 20px; }
+                .total-label { font-size: 12px; text-transform: uppercase; margin-right: 10px; }
+                .total-value { font-size: 24px; font-weight: bold; }
+                
+                .footer { margin-top: 40px; font-size: 10px; text-align: center; border-top: 1px solid #ccc; padding-top: 10px; }
+                
+                @media print {
+                    body { padding: 0; }
+                    .boleto-container { border: 1px solid #000; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="boleto-container">
+                <div class="header">
+                    <div class="company-info">
+                        <h1>${data.company_name}</h1>
+                        <p>${data.cnpj}</p>
+                        <p>${data.address}</p>
+                    </div>
+                    <div class="doc-title">
+                        <h2>Recibo de Pagamento</h2>
+                        <p>#${data.id}</p>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col" style="flex: 2">
+                        <div class="label">Pagador (Cliente)</div>
+                        <div class="value">${data.client_name}</div>
+                    </div>
+                    <div class="col">
+                        <div class="label">Documento</div>
+                        <div class="value">${data.client_doc || '-'}</div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col" style="flex: 3">
+                        <div class="label">Descrição</div>
+                        <div class="value">${data.description}</div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col">
+                        <div class="label">Data de Emissão</div>
+                        <div class="value">${formatDate(data.created_at)}</div>
+                    </div>
+                    <div class="col">
+                        <div class="label">Vencimento</div>
+                        <div class="value" style="color: #d00">${formatDate(data.due_date)}</div>
+                    </div>
+                </div>
+                
+                <div class="total-box">
+                    <span class="total-label">Valor Total</span>
+                    <span class="total-value">${formatCurrency(data.amount)}</span>
+                </div>
+                
+                <div class="pix-box">
+                    <div class="pix-title">PAGAMENTO VIA PIX</div>
+                    <p class="pix-inst">Utilize a chave abaixo para realizar o pagamento:</p>
+                    <div class="pix-key">${data.pix_key}</div>
+                    <p class="pix-inst">Tipo de Chave: <strong>${data.pix_key_type}</strong></p>
+                    <p style="margin-top: 10px; font-size: 10px;">Após o pagamento, envie o comprovante para facilitar a baixa.</p>
+                </div>
+                
+                <div class="footer">
+                    Documento gerado eletronicamente em ${new Date().toLocaleString('pt-BR')}.
+                    Não serve como nota fiscal.
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+}
+
+/**
+ * Imprime o Boleto/Recibo PIX
+ */
+export const printBoleto = (data: BoletoData): void => {
+    const html = generateBoletoHTML(data);
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 300);
+    }
+}
 
 /**
  * Gera o HTML padronizado para Ordem de Serviço
