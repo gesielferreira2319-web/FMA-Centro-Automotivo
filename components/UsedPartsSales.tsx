@@ -103,7 +103,8 @@ export const UsedPartsSales: React.FC<UsedPartsSalesProps> = ({ onClose, onSaleC
                     client_doc: selectedClient.cpf_cnpj || 'Não informado',
                     description: 'Venda Balcão (Peças Usadas)',
                     created_at: new Date().toISOString(),
-                    id: sale.id
+                    id: sale.id,
+                    pix_qrcode: settings.pix_qrcode
                 });
             }
 

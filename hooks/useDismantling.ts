@@ -71,6 +71,38 @@ export function useDismantling() {
 
         setVehicles(prev => prev.map(v => v.id === id ? data : v));
         return data;
+        setVehicles(prev => prev.map(v => v.id === id ? data : v));
+        return data;
+    };
+
+    const deleteVehicle = async (id: string, originDescription?: string) => {
+        // 1. Delete associated parts if origin is provided
+        if (originDescription) {
+            const { error: partError } = await supabase
+                .from('inventory')
+                .delete()
+                .eq('origin_vehicle', originDescription);
+
+            if (partError) {
+                console.error('Erro ao deletar peças do veículo:', partError);
+                // We typically continue to delete the vehicle, or throw? 
+                // Let's continue but warn.
+            }
+        }
+
+        // 2. Delete the vehicle itself
+        const { error } = await supabase
+            .from('dismantling_vehicles')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Erro ao deletar veículo:', error);
+            throw error;
+        }
+
+        setVehicles(prev => prev.filter(v => v.id !== id));
+        return true;
     };
 
     useEffect(() => {
@@ -83,6 +115,7 @@ export function useDismantling() {
         error,
         addVehicle,
         updateVehicle,
+        deleteVehicle,
         refresh: fetchVehicles
     };
 }

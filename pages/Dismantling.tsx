@@ -26,9 +26,9 @@ const KpiCard = ({ icon, label, value, color, sub, isAlert }: any) => (
 export default function Dismantling() {
     const [activeTab, setActiveTab] = useState('geral');
     const { role } = useAuth();
-    const { vehicles, loading: loadingVehicles, addVehicle, updateVehicle } = useDismantling();
-    const { items: inventoryItems, loading: loadingInventory, addItem, fetchItems } = useInventory(true);
-    const { fetchDismantlingSales } = useSales();
+    const { vehicles, loading: loadingVehicles, addVehicle, updateVehicle, deleteVehicle } = useDismantling();
+    const { items: inventoryItems, loading: loadingInventory, addItem, fetchItems, deleteItem } = useInventory(true);
+    const { fetchDismantlingSales, updateSalePaymentStatus } = useSales();
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     // EMPLOYEE VIEW: Only Counter Sales
@@ -57,7 +57,13 @@ export default function Dismantling() {
     const [dailyFlow, setDailyFlow] = useState<any[]>([]);
     const [salesByMethod, setSalesByMethod] = useState<any[]>([]);
     const [pendingPayablesValue, setPendingPayablesValue] = useState(0);
-    const [pendingBoletos, setPendingBoletos] = useState<any[]>([]);
+    const [pendingReceivables, setPendingReceivables] = useState<any[]>([]);
+
+    // Filters for Financial Tab
+    const [receivablesFilter, setReceivablesFilter] = useState({
+        searchClient: '',
+        period: 'all' as 'this_month' | 'last_month' | 'this_year' | 'quarter' | 'all'
+    });
 
     // Reports State
     const [reportStats, setReportStats] = useState({
@@ -146,9 +152,9 @@ export default function Dismantling() {
             setVehicleRevenueMap(revenueMap);
             setSalesByMethod(Object.entries(methods).map(([k, v]) => ({ name: k, value: v })));
 
-            // Filter Pending Boletos
-            const boletos = sales.filter(s => s.payment_method === 'Boleto' && s.payment_status !== 'pago');
-            setPendingBoletos(boletos);
+            // Filter Pending Receivables (All pending sales)
+            const pending = sales.filter(s => s.payment_status === 'pendente');
+            setPendingReceivables(pending);
 
             // Process Vehicles (Expenses)
             let pendingPayables = 0;
@@ -243,6 +249,32 @@ export default function Dismantling() {
         }
     };
 
+    const handleDeleteVehicle = async (v: DismantlingVehicle) => {
+        const originDesc = `${v.model} ${v.plate || ''}`.trim();
+        const confirmMsg = `ATENÇÃO: Isso excluirá o veículo "${v.model}" e TODAS as peças cadastradas dele (Estoque).\n\nTem certeza que deseja continuar?`;
+
+        if (confirm(confirmMsg)) {
+            try {
+                await deleteVehicle(v.id, originDesc);
+                alert('Veículo e peças excluídos com sucesso.');
+            } catch (error) {
+                alert('Erro ao excluir veículo.');
+            }
+        }
+    };
+
+    const handleDeletePart = async (partId: string, partName: string) => {
+        if (confirm(`Excluir a peça "${partName}" do estoque?`)) {
+            try {
+                await deleteItem(partId);
+                alert('Peça excluída.');
+            } catch (error) {
+                alert('Erro ao excluir peça.');
+            }
+        }
+    };
+
+
     const handleSaleComplete = () => {
         setRefreshTrigger(prev => prev + 1);
         fetchItems();
@@ -287,11 +319,53 @@ export default function Dismantling() {
         : 0;
     const vehicleTotalPartsValue = stockValue + soldValue;
 
+    // Filter Logic for Receivables
+    const getFilteredReceivables = () => {
+        let filtered = [...pendingReceivables];
+
+        // Client Search
+        if (receivablesFilter.searchClient) {
+            const term = receivablesFilter.searchClient.toLowerCase();
+            filtered = filtered.filter(s =>
+                s.clients?.name?.toLowerCase().includes(term) ||
+                s.total.toString().includes(term)
+            );
+        }
+
+        // Period Filter
+        if (receivablesFilter.period !== 'all') {
+            const now = new Date();
+            filtered = filtered.filter(s => {
+                const d = new Date(s.created_at);
+                if (receivablesFilter.period === 'this_month') {
+                    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                }
+                if (receivablesFilter.period === 'last_month') {
+                    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                    return d.getMonth() === lastMonth.getMonth() && d.getFullYear() === lastMonth.getFullYear();
+                }
+                if (receivablesFilter.period === 'this_year') {
+                    return d.getFullYear() === now.getFullYear();
+                }
+                if (receivablesFilter.period === 'quarter') {
+                    // Last 3 months
+                    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+                    return d >= threeMonthsAgo;
+                }
+                return true;
+            });
+        }
+
+        return filtered;
+    };
+
+    const displayedReceivables = getFilteredReceivables();
+
     return (
         <div className="animate-in fade-in duration-500 pb-20">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
-                    <h2 className="text-3xl font-display font-bold text-primary dark:text-white">Desmanche Financeiro</h2>
+                    <h2 className="text-3xl font-display font-bold text-primary dark:text-white">Desmanche</h2>
                     <p className="text-slate-500 dark:text-slate-400">Gestão completa de compras, vendas e desmontagem.</p>
                 </div>
                 <div className="flex gap-2">
@@ -308,11 +382,11 @@ export default function Dismantling() {
 
             {/* Tabs */}
             <div className="flex gap-4 border-b border-slate-200 dark:border-slate-700 mb-6 overflow-x-auto">
-                {['geral', 'veiculos', 'relatorios'].map((tab) => (
+                {['geral', 'veiculos', 'relatorios', 'financeiro'].map((tab) => (
                     <button key={tab} onClick={() => setActiveTab(tab)}
                         className={`pb-2 px-4 font-medium transition-colors whitespace-nowrap capitalize ${activeTab === tab ? 'border-b-2 border-primary text-primary' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
                             }`}>
-                        {tab === 'veiculos' ? 'Veículos' : tab === 'geral' ? 'Visão Geral' : 'Relatórios'}
+                        {tab === 'veiculos' ? 'Veículos' : tab === 'geral' ? 'Visão Geral' : tab === 'financeiro' ? 'Financeiro' : 'Relatórios'}
                     </button>
                 ))}
             </div>
@@ -348,6 +422,7 @@ export default function Dismantling() {
                                     {potentialRevenueInventory.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                 </p>
                             </div>
+
 
                             {/* Charts Area */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -388,70 +463,6 @@ export default function Dismantling() {
                             </div>
 
 
-
-                            {/* Pending Boletos Table */}
-                            {pendingBoletos.length > 0 && (
-                                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="font-bold text-lg dark:text-white flex items-center gap-2">
-                                            <span className="material-icons-round text-orange-500">receipt_long</span>
-                                            Boletos Pendentes (A Receber)
-                                        </h3>
-                                    </div>
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left text-sm">
-                                            <thead className="text-xs text-slate-400 uppercase border-b border-slate-100 dark:border-slate-700">
-                                                <tr>
-                                                    <th className="pb-3 pl-2">Data</th>
-                                                    <th className="pb-3">Cliente</th>
-                                                    <th className="pb-3">Vencimento</th>
-                                                    <th className="pb-3 text-right pr-2">Valor</th>
-                                                    <th className="pb-3 text-center">Ações</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                                {pendingBoletos.map(boleto => (
-                                                    <tr key={boleto.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                                        <td className="py-3 pl-2 text-slate-600 dark:text-slate-400">
-                                                            {new Date(boleto.created_at).toLocaleDateString('pt-BR')}
-                                                        </td>
-                                                        <td className="py-3 font-bold text-slate-700 dark:text-white">
-                                                            {boleto.clients?.name || 'Não informado'}
-                                                        </td>
-                                                        <td className="py-3">
-                                                            <span className={`text-xs font-bold ${new Date(boleto.payment_due_date) < new Date() ? 'text-rose-500' : 'text-slate-500'}`}>
-                                                                {boleto.payment_due_date ? new Date(boleto.payment_due_date).toLocaleDateString('pt-BR') : '-'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="py-3 text-right pr-2 font-bold text-slate-800 dark:text-slate-200">
-                                                            {boleto.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                        </td>
-                                                        <td className="py-3 text-center">
-                                                            <button
-                                                                onClick={async () => {
-                                                                    if (confirm('Confirmar recebimento deste boleto?')) {
-                                                                        // Usually we would need a function to update Sale payment status.
-                                                                        // Assuming we might need to add it to useSales or handle it here via supabase directly if needed,
-                                                                        // but useSales likely has logic. Checking useSales... 
-                                                                        // For now, alert user to go to OS or Sales list? Actually we are in Dismantling.
-                                                                        // I will assume for now we just show it. Or add direct update.
-                                                                        // Let's add basic update via direct Supabase or alert?
-                                                                        // The user asked to "see".
-                                                                        alert('Para dar baixa, acesse o painel financeiro principal ou vendas.');
-                                                                    }
-                                                                }}
-                                                                className="text-emerald-600 hover:text-emerald-800 text-xs font-bold uppercase"
-                                                            >
-                                                                Dar Baixa
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Profitable Vehicles Table */}
                             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
@@ -550,6 +561,11 @@ export default function Dismantling() {
                                                 </div>
                                             </td>
                                             <td className="p-4 flex gap-2 justify-end">
+                                                {/* Delete Vehicle Button */}
+                                                <button title="Excluir Veículo" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" onClick={() => handleDeleteVehicle(v)}>
+                                                    <span className="material-icons-round">delete</span>
+                                                </button>
+
                                                 {v.status !== 'finalizado' && (
                                                     <button title="Dar Baixa" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" onClick={() => confirm('Finalizar?') && handleWriteOff(v.id)}>
                                                         <span className="material-icons-round">archive</span>
@@ -571,6 +587,110 @@ export default function Dismantling() {
                 </>
             )
             }
+
+            {activeTab === 'financeiro' && (
+                <div className="space-y-6 animate-in fade-in">
+                    {/* Pending Receivables Table (Moved Here) */}
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                            <h3 className="font-bold text-lg dark:text-white flex items-center gap-2">
+                                <span className="material-icons-round text-orange-500">account_balance_wallet</span>
+                                Contas a Receber (Vendas)
+                            </h3>
+
+                            {/* Filters */}
+                            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                                <div className="relative">
+                                    <span className="material-icons-round absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar cliente..."
+                                        className="pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-slate-50 dark:bg-slate-900 dark:text-white w-full md:w-64 outline-none focus:ring-2 focus:ring-primary/20"
+                                        value={receivablesFilter.searchClient}
+                                        onChange={e => setReceivablesFilter(prev => ({ ...prev, searchClient: e.target.value }))}
+                                    />
+                                </div>
+                                <select
+                                    className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-slate-50 dark:bg-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                                    value={receivablesFilter.period}
+                                    onChange={e => setReceivablesFilter(prev => ({ ...prev, period: e.target.value as any }))}
+                                >
+                                    <option value="this_month">Este Mês</option>
+                                    <option value="last_month">Mês Passado</option>
+                                    <option value="quarter">Últimos 3 Meses</option>
+                                    <option value="this_year">Este Ano</option>
+                                    <option value="all">Tudo</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="text-xs text-slate-400 uppercase border-b border-slate-100 dark:border-slate-700">
+                                    <tr>
+                                        <th className="pb-3 pl-2">Data</th>
+                                        <th className="pb-3">Cliente</th>
+                                        <th className="pb-3">Método</th>
+                                        <th className="pb-3">Vencimento</th>
+                                        <th className="pb-3 text-right pr-2">Valor</th>
+                                        <th className="pb-3 text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                    {displayedReceivables.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="py-8 text-center text-slate-500">
+                                                {receivablesFilter.searchClient || receivablesFilter.period !== 'all'
+                                                    ? 'Nenhum resultado encontrado para os filtros.'
+                                                    : 'Nenhuma conta a receber pendente.'}
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        displayedReceivables.map(sale => (
+                                            <tr key={sale.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                <td className="py-3 pl-2 text-slate-600 dark:text-slate-400">
+                                                    {new Date(sale.created_at).toLocaleDateString('pt-BR')}
+                                                </td>
+                                                <td className="py-3 font-bold text-slate-700 dark:text-white">
+                                                    {sale.clients?.name || 'Não informado'}
+                                                </td>
+                                                <td className="py-3 text-slate-600 dark:text-slate-400">
+                                                    {sale.payment_method}
+                                                </td>
+                                                <td className="py-3">
+                                                    <span className={`text-xs font-bold ${sale.payment_due_date && new Date(sale.payment_due_date) < new Date() ? 'text-rose-500' : 'text-slate-500'}`}>
+                                                        {sale.payment_due_date ? new Date(sale.payment_due_date).toLocaleDateString('pt-BR') : '-'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 text-right pr-2 font-bold text-slate-800 dark:text-slate-200">
+                                                    {sale.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </td>
+                                                <td className="py-3 text-center">
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (confirm('Confirmar recebimento deste valor?')) {
+                                                                try {
+                                                                    await updateSalePaymentStatus(sale.id, 'pago');
+                                                                    setRefreshTrigger(prev => prev + 1); // Refresh data
+                                                                    alert('Pagamento confirmado com sucesso!');
+                                                                } catch (e) {
+                                                                    alert('Erro ao confirmar pagamento.');
+                                                                }
+                                                            }
+                                                        }}
+                                                        className="text-emerald-600 hover:text-emerald-800 text-xs font-bold uppercase border border-emerald-200 hover:bg-emerald-50 rounded px-2 py-1 transition-colors"
+                                                    >
+                                                        Dar Baixa
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {activeTab === 'relatorios' && (
                 <div className="space-y-6 animate-in fade-in">
@@ -730,7 +850,7 @@ export default function Dismantling() {
                             <div className="flex-1 overflow-y-auto">
                                 <table className="w-full text-left text-sm">
                                     <thead className="bg-slate-50 dark:bg-slate-900 text-xs uppercase text-slate-500 sticky top-0">
-                                        <tr><th className="p-3">Peça</th><th className="p-3 text-right">Preço</th><th className="p-3 text-center">Qtd</th></tr>
+                                        <tr><th className="p-3">Peça</th><th className="p-3 text-right">Preço</th><th className="p-3 text-center">Qtd</th><th className="p-3 text-center">Ações</th></tr>
                                     </thead>
                                     <tbody>
                                         {vehicleParts.map(p => (
@@ -741,6 +861,11 @@ export default function Dismantling() {
                                                 </td>
                                                 <td className="p-3 text-right font-bold">R$ {p.unit_price.toFixed(2)}</td>
                                                 <td className="p-3 text-center">{p.quantity}</td>
+                                                <td className="p-3 text-center">
+                                                    <button onClick={() => handleDeletePart(p.id, p.name)} className="text-red-400 hover:text-red-600" title="Excluir Peça">
+                                                        <span className="material-icons-round text-lg">delete</span>
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

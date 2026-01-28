@@ -107,7 +107,13 @@ export function useSales() {
                 id,
                 total,
                 payment_method,
+                payment_status,
+                payment_due_date,
                 created_at,
+                client_id,
+                clients (
+                    name
+                ),
                 sale_items (
                     id,
                     quantity,
@@ -127,12 +133,26 @@ export function useSales() {
             console.error('Erro ao buscar vendas de desmanche:', error);
             return [];
         }
-        return data as any[]; // Returning typed data would be better but keeping it simple for now
+        return data as any[];
+    };
+
+    const updateSalePaymentStatus = async (saleId: string, status: 'pago' | 'pendente') => {
+        const { error } = await supabase
+            .from('sales')
+            .update({ payment_status: status })
+            .eq('id', saleId);
+
+        if (error) {
+            console.error('Erro ao atualizar status do pagamento:', error);
+            throw error;
+        }
+        return true;
     };
 
     return {
         loading,
         createSale,
-        fetchDismantlingSales
+        fetchDismantlingSales,
+        updateSalePaymentStatus
     };
 }

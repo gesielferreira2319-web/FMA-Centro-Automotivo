@@ -685,27 +685,31 @@ export default function Financial() {
                         </div>
 
                         {/* Filters */}
-                        <div className="flex gap-2 w-full md:w-auto">
-                            <div className="relative flex-1 md:flex-none">
-                                <span className="material-icons-round absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+                        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                            <div className="relative">
+                                <span className="material-icons-round absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
                                 <input
                                     type="text"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    placeholder="Buscar por cliente, placa, valor..."
-                                    className="pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500 w-full md:w-64"
+                                    placeholder="Buscar cliente..."
+                                    className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500/20 w-full md:w-64"
                                 />
                             </div>
+
                             {receivableViewMode === 'list' && (
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="px-3 py-1.5 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500 bg-white"
-                                >
-                                    <option value="">Filtro: Todos</option>
-                                    <option value="pendente">Pendentes</option>
-                                    <option value="pago">Recebidos</option>
-                                </select>
+                                <>
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                        className="px-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                                    >
+                                        <option value="">Status: Todos</option>
+                                        <option value="pendente">Pendentes</option>
+                                        <option value="pago">Recebidos</option>
+                                    </select>
+                                </>
+
                             )}
                         </div>
                     </div>
@@ -823,89 +827,91 @@ export default function Financial() {
                 </div>
 
                 {/* --- RECEIVABLE DETAILS MODAL --- */}
-                {viewingReceivable && (
-                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
-                            <div className="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center">
-                                <h3 className="font-bold text-slate-700 flex items-center gap-2">
-                                    <span className="material-icons-round text-blue-600">receipt</span>
-                                    Detalhes do Recebimento
-                                </h3>
-                                <button onClick={() => setViewingReceivable(null)} className="hover:bg-slate-200 rounded p-1"><span className="material-icons-round">close</span></button>
-                            </div>
-                            <div className="p-6 space-y-4">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="text-xs font-bold text-slate-400 uppercase">Cliente</p>
-                                        <p className="text-lg font-bold text-slate-800">{viewingReceivable.client_name || 'Não informado'}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-bold text-slate-400 uppercase">Valor</p>
-                                        <p className="text-2xl font-bold text-emerald-600">{formatCurrency(viewingReceivable.amount)}</p>
-                                    </div>
+                {
+                    viewingReceivable && (
+                        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+                                <div className="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center">
+                                    <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                        <span className="material-icons-round text-blue-600">receipt</span>
+                                        Detalhes do Recebimento
+                                    </h3>
+                                    <button onClick={() => setViewingReceivable(null)} className="hover:bg-slate-200 rounded p-1"><span className="material-icons-round">close</span></button>
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
-                                    {viewingReceivable.vehicle && (
-                                        <>
-                                            <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase">Veículo</p>
-                                                <p className="text-sm font-semibold text-slate-700">{viewingReceivable.vehicle}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase">Placa</p>
-                                                <p className="text-sm font-semibold text-slate-700 uppercase">{viewingReceivable.plate || '-'}</p>
-                                            </div>
-                                        </>
-                                    )}
-                                    <div>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Origem</p>
-                                        <p className="text-sm font-semibold text-slate-700">{viewingReceivable.type === 'os' ? 'Ordem de Serviço' : 'Venda de Balcão'}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Status Pagto</p>
-                                        <p className={`text-sm font-bold uppercase ${viewingReceivable.payment_status === 'pago' ? 'text-emerald-600' : 'text-orange-600'}`}>
-                                            {viewingReceivable.payment_status}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Data Emissão</p>
-                                        <p className="text-sm font-medium text-slate-600">{formatDate(viewingReceivable.date)}</p>
-                                    </div>
-                                    {viewingReceivable.due_date && (
+                                <div className="p-6 space-y-4">
+                                    <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Vencimento</p>
-                                            <p className={`text-sm font-bold ${new Date(viewingReceivable.due_date) < new Date() && viewingReceivable.payment_status !== 'pago' ? 'text-rose-600' : 'text-slate-600'}`}>
-                                                {formatDate(viewingReceivable.due_date)}
+                                            <p className="text-xs font-bold text-slate-400 uppercase">Cliente</p>
+                                            <p className="text-lg font-bold text-slate-800">{viewingReceivable.client_name || 'Não informado'}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-xs font-bold text-slate-400 uppercase">Valor</p>
+                                            <p className="text-2xl font-bold text-emerald-600">{formatCurrency(viewingReceivable.amount)}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                        {viewingReceivable.vehicle && (
+                                            <>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Veículo</p>
+                                                    <p className="text-sm font-semibold text-slate-700">{viewingReceivable.vehicle}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Placa</p>
+                                                    <p className="text-sm font-semibold text-slate-700 uppercase">{viewingReceivable.plate || '-'}</p>
+                                                </div>
+                                            </>
+                                        )}
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Origem</p>
+                                            <p className="text-sm font-semibold text-slate-700">{viewingReceivable.type === 'os' ? 'Ordem de Serviço' : 'Venda de Balcão'}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Status Pagto</p>
+                                            <p className={`text-sm font-bold uppercase ${viewingReceivable.payment_status === 'pago' ? 'text-emerald-600' : 'text-orange-600'}`}>
+                                                {viewingReceivable.payment_status}
                                             </p>
                                         </div>
+                                        <div>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Data Emissão</p>
+                                            <p className="text-sm font-medium text-slate-600">{formatDate(viewingReceivable.date)}</p>
+                                        </div>
+                                        {viewingReceivable.due_date && (
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase">Vencimento</p>
+                                                <p className={`text-sm font-bold ${new Date(viewingReceivable.due_date) < new Date() && viewingReceivable.payment_status !== 'pago' ? 'text-rose-600' : 'text-slate-600'}`}>
+                                                    {formatDate(viewingReceivable.due_date)}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-400 uppercase mb-1">Descrição / Itens</p>
+                                        <div className="bg-slate-50 p-3 rounded text-sm text-slate-600 border border-slate-100">
+                                            {viewingReceivable.description}
+                                        </div>
+                                    </div>
+
+                                    {viewingReceivable.payment_status !== 'pago' && (
+                                        <button
+                                            onClick={() => {
+                                                handleReceive(viewingReceivable.id);
+                                                setViewingReceivable(null);
+                                            }}
+                                            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-lg shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2 mt-4"
+                                        >
+                                            <span className="material-icons-round">payments</span>
+                                            Confirmar Recebimento
+                                        </button>
                                     )}
                                 </div>
-
-                                <div>
-                                    <p className="text-xs font-bold text-slate-400 uppercase mb-1">Descrição / Itens</p>
-                                    <div className="bg-slate-50 p-3 rounded text-sm text-slate-600 border border-slate-100">
-                                        {viewingReceivable.description}
-                                    </div>
-                                </div>
-
-                                {viewingReceivable.payment_status !== 'pago' && (
-                                    <button
-                                        onClick={() => {
-                                            handleReceive(viewingReceivable.id);
-                                            setViewingReceivable(null);
-                                        }}
-                                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-lg shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2 mt-4"
-                                    >
-                                        <span className="material-icons-round">payments</span>
-                                        Confirmar Recebimento
-                                    </button>
-                                )}
                             </div>
                         </div>
-                    </div>
-                )}
-            </div>
+                    )
+                }
+            </div >
         );
     };
 
@@ -1192,16 +1198,17 @@ export default function Financial() {
                 </div>
 
                 <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex items-center">
-                    {(['month', 'last-month', 'year', 'quarter', 'all'] as DateRange[]).map((r) => (
-                        <button key={r} onClick={() => setDateRange(r)}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${dateRange === r ? 'bg-blue-50 text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                }`}>
-                            {r === 'month' ? 'Este Mês' :
-                                r === 'last-month' ? 'Mês Passado' :
-                                    r === 'quarter' ? 'Trimestre' :
-                                        r === 'year' ? 'Este Ano' : 'Tudo'}
-                        </button>
-                    ))}
+                    <select
+                        value={dateRange}
+                        onChange={(e) => setDateRange(e.target.value as DateRange)}
+                        className="px-4 py-2 text-sm font-medium text-slate-600 bg-transparent outline-none cursor-pointer hover:text-slate-800"
+                    >
+                        <option value="month">Este Mês</option>
+                        <option value="last-month">Mês Passado</option>
+                        <option value="quarter">Trimestre</option>
+                        <option value="year">Este Ano</option>
+                        <option value="all">Tudo</option>
+                    </select>
                 </div>
             </div>
 
