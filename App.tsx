@@ -10,6 +10,7 @@ import Clients from './pages/Clients';
 import Settings from './pages/Settings';
 import NewPartsSales from './pages/NewPartsSales';
 import Dismantling from './pages/Dismantling';
+import Install from './pages/Install';
 import { Sidebar } from './components/Sidebar';
 import { ClientProvider } from './contexts/ClientContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -117,6 +118,7 @@ export default function App() {
       <ClientProvider>
         <HashRouter>
           <Routes>
+            <Route path="/install" element={<Install />} />
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
             <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
             <Route path="/service-orders" element={<ProtectedRoute><Layout><ServiceOrders /></Layout></ProtectedRoute>} />
