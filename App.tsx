@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ServiceOrders from './pages/ServiceOrders';
@@ -116,7 +116,7 @@ export default function App() {
   return (
     <AuthProvider>
       <ClientProvider>
-        <HashRouter>
+        <BrowserRouter>
           <Routes>
             <Route path="/install" element={<Install />} />
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -131,7 +131,7 @@ export default function App() {
             <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </HashRouter>
+        </BrowserRouter>
       </ClientProvider>
     </AuthProvider>
   );
