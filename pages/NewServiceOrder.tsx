@@ -4,7 +4,8 @@ import { useServiceOrders, ServiceOrder } from '../hooks/useServiceOrders';
 import { useClients, Client } from '../contexts/ClientContext';
 import { useInventory } from '../hooks/useInventory';
 import { CustomerSelector } from '../components/CustomerSelector';
-import { printOrder as printOrderUtil, downloadOrder, sendOrderToWhatsApp, printBoleto } from '../utils/orderPrint';
+import { printOrder as printOrderUtil, downloadOrder, sendOrderToWhatsApp, printBoleto, downloadBoleto, sendBoletoToWhatsApp } from '../utils/orderPrint';
+import { DropdownButton } from '../components/DropdownButton';
 import { useSettings } from '../hooks/useSettings';
 
 interface ServiceItem {
@@ -326,6 +327,7 @@ export default function NewServiceOrder() {
       client_doc: selectedClient?.cpf_cnpj || 'Não informado',
       description: `Ordem de Serviço #${editingOrder?.order_number || ''}`,
       created_at: editingOrder?.created_at || new Date().toISOString(),
+      pix_qrcode: settings.pix_qrcode,
       id: editingOrder?.order_number || '-'
     });
   };
@@ -351,45 +353,111 @@ export default function NewServiceOrder() {
             Voltar
           </button>
 
-          {isEditing && formData.paymentMethod === 'Boleto' && (
+          {/* Botão Imprimir */}
+          {isEditing && formData.paymentMethod === 'Boleto' ? (
+            <DropdownButton
+              label="Imprimir"
+              icon="print"
+              colorClass="bg-secondary hover:bg-orange-600 text-white"
+              options={[
+                { label: 'Imprimir OS', icon: 'description', onClick: handlePrint },
+                { label: 'Imprimir Boleto', icon: 'qr_code', onClick: handlePrintBoleto }
+              ]}
+            />
+          ) : (
             <button
               type="button"
-              onClick={handlePrintBoleto}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
-              title="Imprimir Boleto PIX"
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2.5 bg-secondary text-white rounded-xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+              title="Imprimir"
             >
-              <span className="material-icons-round text-lg">qr_code_2</span>
-              <span className="hidden sm:inline">Boleto PIX</span>
+              <span className="material-icons-round text-lg">print</span>
+              <span className="hidden sm:inline">Imprimir</span>
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2.5 bg-secondary text-white rounded-xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
-            title="Imprimir"
-          >
-            <span className="material-icons-round text-lg">print</span>
-            <span className="hidden sm:inline">Imprimir</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleDownload}
-            className="flex items-center gap-2 px-4 py-2.5 bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 transition-all shadow-lg"
-            title="Baixar PDF"
-          >
-            <span className="material-icons-round text-lg">download</span>
-            <span className="hidden sm:inline">Baixar</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleWhatsApp}
-            className="flex items-center gap-2 px-4 py-2.5 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-all shadow-lg shadow-green-500/20"
-            title="Enviar via WhatsApp"
-          >
-            <span className="material-icons-round text-lg">send</span>
-            <span className="hidden sm:inline">WhatsApp</span>
-          </button>
+          {/* Botão Baixar */}
+          {isEditing && formData.paymentMethod === 'Boleto' ? (
+            <DropdownButton
+              label="Baixar"
+              icon="download"
+              colorClass="bg-slate-600 hover:bg-slate-700 text-white"
+              options={[
+                { label: 'Baixar PDF da OS', icon: 'description', onClick: handleDownload },
+                {
+                  label: 'Baixar Boleto PDF',
+                  icon: 'qr_code',
+                  onClick: () => downloadBoleto({
+                    company_name: settings.company_name,
+                    cnpj: settings.cnpj,
+                    address: settings.address,
+                    pix_key: settings.pix_key || 'Chave não configurada',
+                    pix_key_type: settings.pix_key_type || 'CPF',
+                    amount: total || formData.value,
+                    due_date: formData.boletoExpiration,
+                    client_name: selectedClient?.name || 'Cliente',
+                    client_doc: selectedClient?.cpf_cnpj || 'Não informado',
+                    description: `Pagamento OS #${editingOrder?.order_number || ''}`,
+                    created_at: editingOrder?.created_at || new Date().toISOString(),
+                    pix_qrcode: settings.pix_qrcode,
+                    id: editingOrder?.order_number || '-'
+                  })
+                }
+              ]}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-600 text-white rounded-xl font-bold hover:bg-slate-700 transition-all shadow-lg"
+              title="Baixar PDF"
+            >
+              <span className="material-icons-round text-lg">download</span>
+              <span className="hidden sm:inline">Baixar</span>
+            </button>
+          )}
+
+          {/* Botão WhatsApp */}
+          {isEditing && formData.paymentMethod === 'Boleto' ? (
+            <DropdownButton
+              label="WhatsApp"
+              icon="send"
+              colorClass="bg-green-500 hover:bg-green-600 text-white"
+              options={[
+                { label: 'Enviar Resumo da OS', icon: 'description', onClick: handleWhatsApp },
+                {
+                  label: 'Enviar Boleto Pix',
+                  icon: 'qr_code',
+                  onClick: () => sendBoletoToWhatsApp({
+                    company_name: settings.company_name,
+                    cnpj: settings.cnpj,
+                    address: settings.address,
+                    pix_key: settings.pix_key || 'Chave não configurada',
+                    pix_key_type: settings.pix_key_type || 'CPF',
+                    amount: total || formData.value,
+                    due_date: formData.boletoExpiration,
+                    client_name: selectedClient?.name || 'Cliente',
+                    client_doc: selectedClient?.cpf_cnpj || 'Não informado',
+                    description: `Pagamento OS #${editingOrder?.order_number || ''}`,
+                    created_at: editingOrder?.created_at || new Date().toISOString(),
+                    pix_qrcode: settings.pix_qrcode,
+                    id: editingOrder?.order_number || '-',
+                    client_phone: selectedClient?.phone
+                  }, selectedClient?.phone)
+                }
+              ]}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={handleWhatsApp}
+              className="flex items-center gap-2 px-4 py-2.5 bg-green-500 text-white rounded-xl font-bold hover:bg-green-600 transition-all shadow-lg shadow-green-500/20"
+              title="Enviar via WhatsApp"
+            >
+              <span className="material-icons-round text-lg">send</span>
+              <span className="hidden sm:inline">WhatsApp</span>
+            </button>
+          )}
         </div>
       </div>
 

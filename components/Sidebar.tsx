@@ -55,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, isDarkMode, o
             if (userRole === 'owner') return true;
             // If role is null/undefined (loading or error), default to restricted view (Safety)
             // Employee only sees: OS, Venda Peças, Desmanche
-            return ['/service-orders', '/parts-sales', '/dismantling'].includes(item.path);
+            return ['/service-orders', '/parts-sales', '/dismantling', '/clients'].includes(item.path);
           }).map((item) => (
             <Link
               key={item.path}

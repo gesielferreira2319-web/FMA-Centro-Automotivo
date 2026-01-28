@@ -11,7 +11,7 @@ interface AuthContextType {
     role: UserRole;
     loading: boolean;
     signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-    signUp: (email: string, password: string, role?: UserRole) => Promise<{ error: AuthError | null }>;
+    signUp: (email: string, password: string, role?: UserRole, fullName?: string) => Promise<{ error: AuthError | null }>;
     signOut: () => Promise<void>;
 }
 
@@ -61,20 +61,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (data) {
                 setRole(data.role as UserRole);
             } else {
-                console.warn('No profile found. Defaulting to employee and creating profile...');
-                setRole('employee');
-                // Auto-heal: Attempt to create the missing profile
-                try {
-                    await supabase.from('profiles').insert([
-                        { id: userId, email: session?.user?.email, role: 'employee' }
-                    ]);
-                } catch (e) {
-                    console.error('Auto-creation failed', e);
-                }
+                console.warn('User authenticated but no profile found. Access denied.');
+                setRole(null);
+                await supabase.auth.signOut();
+                // Force reload to clear any state if needed, or simply let the app redirect to login
+                // window.location.href = '/login'; 
             }
         } catch (error) {
             console.error('Error fetching role:', error);
-            setRole('employee'); // Safety fallback
+            setRole(null); // Deny access on error
         } finally {
             setLoading(false);
         }
@@ -88,10 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error };
     };
 
-    const signUp = async (email: string, password: string, role: UserRole = 'employee') => {
+    const signUp = async (email: string, password: string, role: UserRole = 'employee', fullName: string = '') => {
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
+            options: {
+                data: {
+                    full_name: fullName
+                }
+            }
         });
 
         if (!error && data.user) {
@@ -99,7 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const { error: profileError } = await supabase
                 .from('profiles')
                 .insert([
-                    { id: data.user.id, email: email, role: role }
+                    {
+                        id: data.user.id,
+                        email: email,
+                        role: role,
+                        full_name: fullName
+                    }
                 ]);
 
             if (profileError) {

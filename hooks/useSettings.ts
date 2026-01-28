@@ -13,6 +13,7 @@ export interface SettingsData {
     auto_backup: boolean;
     pix_key?: string;
     pix_key_type?: 'CPF' | 'CNPJ' | 'Email' | 'Telefone' | 'Aleatoria';
+    pix_qrcode?: string;
 }
 
 export const DEFAULT_SETTINGS: SettingsData = {

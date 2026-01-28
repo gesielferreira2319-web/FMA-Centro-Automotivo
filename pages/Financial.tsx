@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 
 // --- TYPES ---
 type ViewMode = 'dashboard' | 'payable' | 'receivable' | 'reports';
+type ReportTab = 'dre' | 'parts' | 'services' | 'suppliers'; // Add suppliers tab
 type DateRange = 'month' | 'last-month' | 'year' | 'quarter' | 'all';
 
 interface FinancialData {
@@ -34,6 +35,7 @@ interface FinancialData {
     // New Report Data
     partsReport: {
         totalRevenue: number;
+        totalCost: number; // New field
         totalItems: number;
         topProducts: { name: string; quantity: number; revenue: number }[];
         allProducts: { name: string; quantity: number; revenue: number }[];
@@ -43,6 +45,12 @@ interface FinancialData {
         totalJobs: number;
         topServices: { name: string; count: number; revenue: number }[];
         allServices: { name: string; count: number; revenue: number }[];
+    };
+    suppliersReport: {
+        totalPurchases: number;
+        totalSuppliers: number;
+        topSuppliers: { name: string; count: number; total: number }[];
+        allSuppliers: { name: string; count: number; total: number; paid: number; pending: number }[];
     };
 }
 
@@ -119,7 +127,7 @@ export default function Financial() {
     const [viewingReceivable, setViewingReceivable] = useState<Receivable | null>(null);
 
     // Report Sub-tabs
-    const [reportTab, setReportTab] = useState<'dre' | 'parts' | 'services'>('dre');
+    const [reportTab, setReportTab] = useState<ReportTab>('dre');
 
     // Data State
     const [payables, setPayables] = useState<Payable[]>([]);
@@ -131,8 +139,9 @@ export default function Financial() {
         salesByMethod: [], dailyFlow: [], monthlyFlow: [],
         receivablesAging: { current: 0, overdue30: 0, overdue60: 0, overdue90: 0 },
         receivablesByClient: [],
-        partsReport: { totalRevenue: 0, totalItems: 0, topProducts: [], allProducts: [] },
-        servicesReport: { totalRevenue: 0, totalJobs: 0, topServices: [], allServices: [] }
+        partsReport: { totalRevenue: 0, totalCost: 0, totalItems: 0, topProducts: [], allProducts: [] },
+        servicesReport: { totalRevenue: 0, totalJobs: 0, topServices: [], allServices: [] },
+        suppliersReport: { totalPurchases: 0, totalSuppliers: 0, topSuppliers: [], allSuppliers: [] }
     });
 
     // Form State (Modal)
@@ -163,7 +172,7 @@ export default function Financial() {
 
             // 2. Sales (Vendas) - Only 'balcao' and include items
             const { data: dbSales } = await supabase.from('sales')
-                .select('*, clients(name), sale_items(quantity, unit_price, inventory(name))')
+                .select('*, clients(name), sale_items(quantity, unit_price, inventory(name, cost_price))')
                 .eq('sale_type', 'balcao') // Filter STORE sales only
                 .gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
 
@@ -200,6 +209,7 @@ export default function Financial() {
             const partsMap = new Map<string, { quantity: number, revenue: number }>();
             const servicesMap = new Map<string, { count: number, revenue: number }>();
             let totalPartsRevenue = 0;
+            let totalPartsCost = 0;
             let totalServicesRevenue = 0;
             let totalItemsSold = 0;
             let totalServiceJobs = 0;
@@ -210,12 +220,14 @@ export default function Financial() {
                     if (item.inventory?.name) {
                         const name = item.inventory.name;
                         const rev = (item.unit_price * item.quantity);
+                        const cost = (item.inventory.cost_price || 0) * item.quantity;
                         const curr = partsMap.get(name) || { quantity: 0, revenue: 0 };
                         curr.quantity += item.quantity;
                         curr.revenue += rev;
                         partsMap.set(name, curr);
 
                         totalPartsRevenue += rev;
+                        totalPartsCost += cost;
                         totalItemsSold += item.quantity;
                     }
                 });
@@ -258,6 +270,7 @@ export default function Financial() {
 
             const partsReport = {
                 totalRevenue: totalPartsRevenue,
+                totalCost: totalPartsCost,
                 totalItems: totalItemsSold,
                 topProducts: allProducts.slice(0, 5),
                 allProducts
@@ -268,6 +281,28 @@ export default function Financial() {
                 totalJobs: totalServiceJobs,
                 topServices: allServices.slice(0, 5),
                 allServices
+            };
+
+
+
+            // --- Suppliers Reporting Logic ---
+            const suppliersMap = new Map<string, { count: number, total: number, paid: number, pending: number }>();
+            _payables.forEach(p => {
+                const name = p.supplier_name || 'Desconhecido';
+                const curr = suppliersMap.get(name) || { count: 0, total: 0, paid: 0, pending: 0 };
+                curr.count += 1;
+                curr.total += p.amount;
+                if (p.status === 'pago') curr.paid += p.amount;
+                else curr.pending += p.amount;
+                suppliersMap.set(name, curr);
+            });
+            const allSuppliers = Array.from(suppliersMap.entries()).map(([name, val]) => ({ name, ...val })).sort((a, b) => b.total - a.total);
+
+            const suppliersReport = {
+                totalPurchases: _payables.reduce((acc, p) => acc + p.amount, 0),
+                totalSuppliers: suppliersMap.size,
+                topSuppliers: allSuppliers.slice(0, 5),
+                allSuppliers
             };
 
             // --- Advanced Receivables Metrics ---
@@ -360,8 +395,10 @@ export default function Financial() {
                 monthlyFlow: [],
                 receivablesAging: aging,
                 receivablesByClient,
+
                 partsReport,
-                servicesReport
+                servicesReport,
+                suppliersReport
             });
 
         } catch (e) { console.error(e); }
@@ -888,6 +925,10 @@ export default function Financial() {
                     className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${reportTab === 'services' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                     Serviços
                 </button>
+                <button onClick={() => setReportTab('suppliers')}
+                    className={`px-4 py-2 text-sm font-bold rounded-md transition-all ${reportTab === 'suppliers' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Fornecedores
+                </button>
             </div>
 
             {reportTab === 'dre' && (
@@ -916,14 +957,14 @@ export default function Financial() {
             {reportTab === 'parts' && (
                 <div className="space-y-6 animate-in fade-in">
                     {/* Parts KPIs */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
                             <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
                                 <span className="material-icons-round">category</span>
                             </div>
                             <div>
-                                <p className="text-sm text-slate-500 font-bold uppercase">Itens Vendidos</p>
-                                <p className="text-2xl font-bold text-slate-800">{stats.partsReport.totalItems}</p>
+                                <p className="text-xs text-slate-500 font-bold uppercase">Itens</p>
+                                <p className="text-xl font-bold text-slate-800">{stats.partsReport.totalItems}</p>
                             </div>
                         </div>
                         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -931,8 +972,26 @@ export default function Financial() {
                                 <span className="material-icons-round">attach_money</span>
                             </div>
                             <div>
-                                <p className="text-sm text-slate-500 font-bold uppercase">Receita de Peças</p>
-                                <p className="text-2xl font-bold text-slate-800">{formatCurrency(stats.partsReport.totalRevenue)}</p>
+                                <p className="text-xs text-slate-500 font-bold uppercase">Receita</p>
+                                <p className="text-xl font-bold text-slate-800">{formatCurrency(stats.partsReport.totalRevenue)}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+                                <span className="material-icons-round">money_off</span>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500 font-bold uppercase">Custo (Fornecedor)</p>
+                                <p className="text-xl font-bold text-slate-800">{formatCurrency(stats.partsReport.totalCost)}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                <span className="material-icons-round">trending_up</span>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500 font-bold uppercase">Lucro Bruto</p>
+                                <p className="text-xl font-bold text-slate-800">{formatCurrency(stats.partsReport.totalRevenue - stats.partsReport.totalCost)}</p>
                             </div>
                         </div>
                     </div>
@@ -1046,6 +1105,77 @@ export default function Financial() {
                     </div>
                 </div>
             )}
+
+            {reportTab === 'suppliers' && (
+                <div className="space-y-6 animate-in fade-in">
+                    {/* Suppliers KPIs */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600">
+                                <span className="material-icons-round">local_shipping</span>
+                            </div>
+                            <div>
+                                <p className="text-sm text-slate-500 font-bold uppercase">Compras Realizadas</p>
+                                <p className="text-2xl font-bold text-slate-800">{stats.suppliersReport.totalSuppliers} <span className="text-sm text-slate-400 font-medium">fornecedores</span></p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+                                <span className="material-icons-round">money_off</span>
+                            </div>
+                            <div>
+                                <p className="text-sm text-slate-500 font-bold uppercase">Total Comprado</p>
+                                <p className="text-2xl font-bold text-slate-800">{formatCurrency(stats.suppliersReport.totalPurchases)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Top Suppliers Chart */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-80">
+                            <h3 className="text-lg font-bold text-slate-700 mb-4">Top 5 Fornecedores (Valor)</h3>
+                            <ResponsiveContainer width="100%" height="90%">
+                                <BarChart data={stats.suppliersReport.topSuppliers} layout="vertical" margin={{ left: 40, right: 40 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} opacity={0.2} />
+                                    <XAxis type="number" hide />
+                                    <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10 }} />
+                                    <RechartsTooltip formatter={(val: number) => formatCurrency(val)} />
+                                    <Bar dataKey="total" fill="#f43f5e" radius={[0, 4, 4, 0]} barSize={20} name="Total Comprado" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Suppliers Table */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm overflow-hidden h-80 flex flex-col">
+                            <h3 className="text-lg font-bold text-slate-700 mb-4">Detalhamento</h3>
+                            <div className="flex-1 overflow-y-auto pr-2">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="sticky top-0 bg-white border-b border-slate-100 text-slate-400 text-xs uppercase">
+                                        <tr>
+                                            <th className="py-2">Fornecedor</th>
+                                            <th className="py-2 text-center">Compras</th>
+                                            <th className="py-2 text-right text-emerald-600">Pago</th>
+                                            <th className="py-2 text-right text-orange-600">Pendente</th>
+                                            <th className="py-2 text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {stats.suppliersReport.allSuppliers.map((s, i) => (
+                                            <tr key={i} className="hover:bg-slate-50">
+                                                <td className="py-2 font-medium text-slate-700 truncate max-w-[150px]" title={s.name}>{s.name}</td>
+                                                <td className="py-2 text-center text-slate-500">{s.count}</td>
+                                                <td className="py-2 text-right text-emerald-600 font-medium">{formatCurrency(s.paid)}</td>
+                                                <td className="py-2 text-right text-orange-600 font-medium">{formatCurrency(s.pending)}</td>
+                                                <td className="py-2 text-right font-bold text-slate-700">{formatCurrency(s.total)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 
@@ -1110,7 +1240,7 @@ export default function Financial() {
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Descrição</label>
                                 <input required type="text" value={accountForm.description} onChange={e => setAccountForm({ ...accountForm, description: e.target.value })}
-                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500" placeholder="Ex: Conta de Luz" />
+                                    className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-500" placeholder="Ex. peças" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>

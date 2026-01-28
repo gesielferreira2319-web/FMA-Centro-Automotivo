@@ -31,6 +31,7 @@ export interface BoletoData {
     address: string;
     pix_key: string;
     pix_key_type: string;
+    pix_qrcode?: string;
     amount: number;
     due_date: string;
     client_name: string;
@@ -38,6 +39,7 @@ export interface BoletoData {
     description: string;
     created_at: string;
     id: string | number;
+    client_phone?: string;
 }
 
 const formatDate = (dateStr: string): string => {
@@ -79,6 +81,8 @@ export const generateBoletoHTML = (data: BoletoData): string => {
                 .pix-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
                 .pix-key { font-size: 20px; font-weight: bold; padding: 10px; background: #fff; border: 1px solid #ddd; margin: 10px 0; word-break: break-all; }
                 .pix-inst { font-size: 12px; }
+                .pix-qr { margin: 15px auto; max-width: 150px; }
+                .pix-qr img { width: 100%; height: auto; border: 1px solid #ddd; padding: 5px; background: #fff; }
                 
                 .total-box { background: #000; color: #fff; padding: 10px; text-align: right; margin-top: 20px; }
                 .total-label { font-size: 12px; text-transform: uppercase; margin-right: 10px; }
@@ -143,6 +147,13 @@ export const generateBoletoHTML = (data: BoletoData): string => {
                 <div class="pix-box">
                     <div class="pix-title">PAGAMENTO VIA PIX</div>
                     <p class="pix-inst">Utilize a chave abaixo para realizar o pagamento:</p>
+                    
+                    ${data.pix_qrcode ? `
+                    <div class="pix-qr">
+                        <img src="${data.pix_qrcode}" alt="QR Code PIX" />
+                    </div>
+                    ` : ''}
+
                     <div class="pix-key">${data.pix_key}</div>
                     <p class="pix-inst">Tipo de Chave: <strong>${data.pix_key_type}</strong></p>
                     <p style="margin-top: 10px; font-size: 10px;">Após o pagamento, envie o comprovante para facilitar a baixa.</p>
@@ -170,6 +181,76 @@ export const printBoleto = (data: BoletoData): void => {
         printWindow.focus();
         setTimeout(() => printWindow.print(), 300);
     }
+}
+
+/**
+ * Faz o download do Boleto/Recibo PIX como PDF
+ */
+export const downloadBoleto = async (data: BoletoData): Promise<void> => {
+    const html = generateBoletoHTML(data);
+    const html2pdf = (await import('html2pdf.js')).default;
+
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    container.style.width = '210mm';
+    container.style.background = 'white';
+    document.body.appendChild(container);
+
+    const options = {
+        margin: [10, 10, 10, 10] as [number, number, number, number],
+        filename: `Boleto_Pix_${data.id}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+    };
+
+    try {
+        await html2pdf().set(options).from(container).save();
+    } catch (error) {
+        console.error('Erro ao baixar boleto:', error);
+        alert('Erro ao baixar boleto PDF.');
+    } finally {
+        document.body.removeChild(container);
+    }
+}
+
+/**
+ * Envia dados do Boleto/Pix via WhatsApp
+ */
+export const sendBoletoToWhatsApp = (data: BoletoData, phoneNumber?: string): void => {
+    // Tenta usar o telefone do cliente do objeto data se não passado
+    // Como BoletoData não tem client_phone explícito na interface acima, vamos assumir que o caller passa ou que não temos.
+    // Update interface above to include client_phone if needed, or pass separately.
+    // For now, let's just ask for it or use a fallback if user passes it in data (need to update interface).
+    // Let's update interface first in a separate check or just accept it as arg.
+
+    if (!phoneNumber) {
+        // Try to find a phone number in client data if we had it, but BoletoData defines strict fields.
+        // We will rely on the caller passing it.
+        alert('Telefone do cliente necessário para envio.');
+        return;
+    }
+
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const fullPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+
+    const message = `💲 *FMA CENTRO AUTOMOTIVO - COBRANÇA*
+━━━━━━━━━━━━━━━━━━━━━
+Olá *${data.client_name}*, segue os dados para pagamento:
+
+📄 *Referência:* ${data.description}
+💰 *Valor:* ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.amount)}
+📅 *Vencimento:* ${new Date(data.due_date).toLocaleDateString('pt-BR')}
+
+🔑 *CHAVE PIX:*
+${data.pix_key}
+(${data.pix_key_type})
+
+_Copie e cole a chave acima no seu aplicativo de banco._
+━━━━━━━━━━━━━━━━━━━━━`;
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${fullPhone}?text=${encodedMessage}`, '_blank');
 }
 
 /**

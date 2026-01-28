@@ -7,6 +7,7 @@ export default function Login() {
   const navigate = useNavigate();
   const { signIn, signUp } = useAuth();
 
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -35,7 +36,7 @@ export default function Login() {
         return;
       }
 
-      const { error } = await signUp(email, password, selectedRole);
+      const { error } = await signUp(email, password, selectedRole, name);
 
       if (error) {
         setError(getErrorMessage(error.message));
@@ -44,6 +45,8 @@ export default function Login() {
         setSuccess(`Conta de ${selectedRole === 'owner' ? 'Proprietário' : 'Funcionário'} criada! Verifique seu email.`);
         setLoading(false);
         setIsSignUp(false);
+        setName('');
+        setEmail('');
         setPassword('');
         setConfirmPassword('');
       }
@@ -76,6 +79,7 @@ export default function Login() {
     setSuccess('');
     setPassword('');
     setConfirmPassword('');
+    setName('');
   };
 
   return (
@@ -105,8 +109,8 @@ export default function Login() {
                   type="button"
                   onClick={() => setSelectedRole('owner')}
                   className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${selectedRole === 'owner'
-                      ? 'bg-secondary text-white shadow-lg shadow-orange-900/20'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-secondary text-white shadow-lg shadow-orange-900/20'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
                     }`}
                 >
                   Proprietário
@@ -115,8 +119,8 @@ export default function Login() {
                   type="button"
                   onClick={() => setSelectedRole('employee')}
                   className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${selectedRole === 'employee'
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
                     }`}
                 >
                   Funcionário
@@ -145,6 +149,24 @@ export default function Login() {
             )}
 
             <div className="space-y-4">
+              {isSignUp && (
+                <div className="space-y-2">
+                  <label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">Nome Completo</label>
+                  <div className="relative group">
+                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-white transition-colors text-xl">person</span>
+                    <input
+                      id="name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Digite seu nome"
+                      required
+                      className="w-full pl-12 pr-4 py-3.5 bg-slate-900/50 border border-slate-700/50 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all text-white placeholder-slate-600"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">Email</label>
                 <div className="relative group">

@@ -100,6 +100,9 @@ export function useInventory(isUsed: boolean = false) {
             .from('inventory')
             .update({
                 ...itemData,
+                sku: itemData.sku || null,
+                supplier_name: itemData.supplier_name || null,
+                due_date: itemData.due_date || null,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', id);

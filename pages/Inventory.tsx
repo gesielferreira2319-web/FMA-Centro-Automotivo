@@ -67,14 +67,21 @@ export default function Inventory() {
     e.preventDefault();
     setSaving(true);
 
+    let success = false;
     if (editingItem) {
-      await updateItem(editingItem.id, formData);
+      success = await updateItem(editingItem.id, formData);
     } else {
-      await addItem({ ...formData, is_used: false });
+      const res = await addItem({ ...formData, is_used: false });
+      success = !!res;
+    }
+
+    if (!success) {
+      alert('Erro ao salvar item. Verifique o console para mais detalhes.');
+    } else {
+      setShowAddModal(false);
     }
 
     setSaving(false);
-    setShowAddModal(false);
   };
 
   const handleDelete = async (id: string) => {

@@ -725,12 +725,7 @@ export default function Dismantling() {
                                     <h3 className="text-xl font-bold dark:text-white">{viewingVehicle.model} - Peças</h3>
                                     <p className="font-bold text-green-600">Total Geral: R$ {vehicleTotalPartsValue.toFixed(2)}</p>
                                 </div>
-                                <div className="text-xs text-slate-400 mt-1 font-mono">
-                                    Filtrando por: Model="{viewingVehicle.model}", Placa="{viewingVehicle.plate}"
-                                    <br />
-                                    (Estoque: {stockValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} +
-                                    Vendido: {soldValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
-                                </div>
+
                             </div>
                             <div className="flex-1 overflow-y-auto">
                                 <table className="w-full text-left text-sm">
@@ -742,7 +737,7 @@ export default function Dismantling() {
                                             <tr key={p.id} className="border-b border-slate-100 dark:border-slate-700">
                                                 <td className="p-3 dark:text-slate-200">
                                                     {p.name}
-                                                    <div className="text-[10px] text-red-400 font-mono mt-0.5">Origem: {p.origin_vehicle}</div>
+
                                                 </td>
                                                 <td className="p-3 text-right font-bold">R$ {p.unit_price.toFixed(2)}</td>
                                                 <td className="p-3 text-center">{p.quantity}</td>
