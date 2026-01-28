@@ -4,6 +4,7 @@ import { useServiceOrders, ServiceOrder } from '../hooks/useServiceOrders';
 import { useClients, Client } from '../contexts/ClientContext';
 import { useInventory } from '../hooks/useInventory';
 import { CustomerSelector } from '../components/CustomerSelector';
+import { VehicleSelector } from '../components/VehicleSelector';
 import { printOrder as printOrderUtil, downloadOrder, sendOrderToWhatsApp, printBoleto, downloadBoleto, sendBoletoToWhatsApp } from '../utils/orderPrint';
 import { DropdownButton } from '../components/DropdownButton';
 import { useSettings } from '../hooks/useSettings';
@@ -611,6 +612,27 @@ export default function NewServiceOrder() {
                 <h3 className="text-lg font-bold text-slate-800 dark:text-white">Dados do Veículo</h3>
               </div>
               <div className="space-y-4">
+                {/* Seletor de Veículos (Aparece apenas quando tem cliente selecionado) */}
+                {selectedClient && (
+                  <div className="mb-6 bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <p className="text-xs font-bold text-slate-500 uppercase mb-3">Veículos do Cliente</p>
+                    <VehicleSelector
+                      clientId={selectedClient.id}
+                      currentPlate={formData.plate}
+                      onSelectVehicle={(plate, model, photo) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          plate: plate,
+                          vehicle: model
+                        }));
+                        if (photo) {
+                          setVehiclePhoto(photo);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
                 {/* Upload de Foto */}
                 <div className="relative group">
                   {vehiclePhoto ? (

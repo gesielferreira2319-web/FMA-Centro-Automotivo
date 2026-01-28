@@ -6,6 +6,7 @@ import { printOrder as printOrderUtil, downloadOrder, sendOrderToWhatsApp } from
 interface ClientHistory {
     sales: any[];
     serviceOrders: any[];
+    vehicles: any[];
 }
 
 export default function Clients() {
@@ -26,8 +27,11 @@ export default function Clients() {
     // Estados para histórico
     const [showHistory, setShowHistory] = useState(false);
     const [historyClient, setHistoryClient] = useState<Client | null>(null);
-    const [history, setHistory] = useState<ClientHistory>({ sales: [], serviceOrders: [] });
+    const [history, setHistory] = useState<ClientHistory>({ sales: [], serviceOrders: [], vehicles: [] });
     const [loadingHistory, setLoadingHistory] = useState(false);
+
+    // Estado para filtro de veículo no histórico
+    const [vehicleFilter, setVehicleFilter] = useState<string | null>(null);
 
     // Estado para visualização de OS
     const [viewingOrder, setViewingOrder] = useState<any | null>(null);
@@ -90,6 +94,7 @@ export default function Clients() {
         setHistoryClient(client);
         setShowHistory(true);
         setLoadingHistory(true);
+        setVehicleFilter(null); // Reset filter when opening
 
         // Buscar vendas do cliente
         const { data: sales } = await supabase
@@ -105,12 +110,25 @@ export default function Clients() {
             .eq('client_id', client.id)
             .order('created_at', { ascending: false });
 
+        // Buscar veículos do cliente
+        const { data: vehicles } = await supabase
+            .from('vehicles')
+            .select('*')
+            .eq('client_id', client.id)
+            .order('created_at', { ascending: false });
+
         setHistory({
             sales: sales || [],
-            serviceOrders: serviceOrders || []
+            serviceOrders: serviceOrders || [],
+            vehicles: vehicles || []
         });
         setLoadingHistory(false);
     };
+
+    // Filter service orders based on selection
+    const filteredServiceOrders = vehicleFilter
+        ? history.serviceOrders.filter(os => os.plate === vehicleFilter)
+        : history.serviceOrders;
 
     const formatDate = (dateStr: string) => {
         return new Date(dateStr).toLocaleDateString('pt-BR');
@@ -591,17 +609,81 @@ export default function Clients() {
                                 </div>
                             ) : (
                                 <div className="space-y-6">
+                                    {/* Veículos Cadastrados */}
+                                    <div>
+                                        <div className="flex justify-between items-end mb-4">
+                                            <h4 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                                <span className="material-icons-round text-primary">directions_car</span>
+                                                Veículos Cadastrados ({history.vehicles.length})
+                                            </h4>
+                                            {vehicleFilter && (
+                                                <button
+                                                    onClick={() => setVehicleFilter(null)}
+                                                    className="text-sm text-primary hover:underline font-bold"
+                                                >
+                                                    Mostrar Todas as OS
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {history.vehicles.length === 0 ? (
+                                            <p className="text-slate-500 text-sm text-center py-4 bg-slate-50 dark:bg-slate-700/30 rounded-xl">Nenhum veículo cadastrado separadamente</p>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {/* Card "Todos" */}
+                                                <div
+                                                    onClick={() => setVehicleFilter(null)}
+                                                    className={`cursor-pointer p-3 rounded-xl border flex items-center gap-3 transition-all ${vehicleFilter === null
+                                                            ? 'bg-primary/10 border-primary ring-1 ring-primary'
+                                                            : 'bg-slate-50 dark:bg-slate-700/30 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                                        }`}
+                                                >
+                                                    <div className="bg-white dark:bg-slate-600 p-1 rounded-lg border border-slate-200 dark:border-slate-500 w-12 h-12 flex items-center justify-center shrink-0">
+                                                        <span className="material-icons-round text-slate-400">apps</span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-slate-800 dark:text-white">Todos</p>
+                                                        <p className="text-xs text-slate-500">Exibir todas OS</p>
+                                                    </div>
+                                                </div>
+
+                                                {history.vehicles.map((vehicle: any) => (
+                                                    <div
+                                                        key={vehicle.id}
+                                                        onClick={() => setVehicleFilter(vehicle.plate)}
+                                                        className={`cursor-pointer p-3 rounded-xl border flex items-center gap-3 transition-all ${vehicleFilter === vehicle.plate
+                                                                ? 'bg-primary/10 border-primary ring-1 ring-primary'
+                                                                : 'bg-slate-50 dark:bg-slate-700/30 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                                            }`}
+                                                    >
+                                                        <div className="bg-white dark:bg-slate-600 p-1 rounded-lg border border-slate-200 dark:border-slate-500 w-12 h-12 flex items-center justify-center shrink-0 overflow-hidden">
+                                                            {vehicle.photo_url ? (
+                                                                <img src={vehicle.photo_url} alt={vehicle.model} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <span className="material-icons-round text-slate-400">directions_car</span>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-slate-800 dark:text-white">{vehicle.plate}</p>
+                                                            <p className="text-xs text-slate-500 truncate">{vehicle.model} {vehicle.color ? `• ${vehicle.color}` : ''}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
                                     {/* Ordens de Serviço */}
                                     <div>
                                         <h4 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
                                             <span className="material-icons-round text-primary">build</span>
-                                            Ordens de Serviço ({history.serviceOrders.length})
+                                            Ordens de Serviço ({filteredServiceOrders.length})
                                         </h4>
-                                        {history.serviceOrders.length === 0 ? (
-                                            <p className="text-slate-500 text-sm text-center py-8">Nenhuma ordem de serviço encontrada</p>
+                                        {filteredServiceOrders.length === 0 ? (
+                                            <p className="text-slate-500 text-sm text-center py-8">Nenhuma ordem de serviço encontrada {vehicleFilter ? 'para este veículo' : ''}</p>
                                         ) : (
                                             <div className="space-y-3">
-                                                {history.serviceOrders.map((os: any) => (
+                                                {filteredServiceOrders.map((os: any) => (
                                                     <div
                                                         key={os.id}
                                                         onClick={() => openOrderModal(os)}
