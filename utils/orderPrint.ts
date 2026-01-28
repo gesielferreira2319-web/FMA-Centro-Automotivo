@@ -44,6 +44,11 @@ export interface BoletoData {
 
 const formatDate = (dateStr: string): string => {
     if (!dateStr) return '-';
+    // Se for apenas uma data YYYY-MM-DD (sem hora), faz o split para evitar problemas de fuso
+    if (dateStr.length === 10 && dateStr.includes('-')) {
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
+    }
     return new Date(dateStr).toLocaleDateString('pt-BR');
 };
 
@@ -498,6 +503,12 @@ export const generateOrderHTML = (order: OrderData): string => {
                     <div class="data-label">Previsão Entrega:</div>
                     <div class="data-value">${order.delivery_date ? formatDate(order.delivery_date) : 'A combinar'}</div>
                 </div>
+                ${order.payment_due_date ? `
+                <div class="data-row">
+                    <div class="data-label">Vencimento:</div>
+                    <div class="data-value" style="color: #d00; font-weight: bold;">${formatDate(order.payment_due_date)}</div>
+                </div>
+                ` : ''}
             </div>
 
             ${order.notes ? `
@@ -638,6 +649,7 @@ ${itemsList}
 
 💰 *VALOR TOTAL: R$ ${total.toFixed(2)}*
 ${(order as any).payment_method ? `💳 Pagamento: ${(order as any).payment_method}` : ''}
+${order.payment_due_date ? `📅 Vencimento: ${formatDate(order.payment_due_date)}` : ''}
 ${order.delivery_date ? `🗓️ Previsão: ${formatDate(order.delivery_date)}` : ''}
 ${order.notes ? `\n📌 Obs: ${order.notes}` : ''}
 
