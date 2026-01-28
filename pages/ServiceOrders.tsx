@@ -34,11 +34,15 @@ export default function ServiceOrders() {
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '-';
-    // Adiciona T12:00:00 para garantir que a data não volte um dia devido ao fuso horário
-    // Ou usa split para pegar apenas dia/mês/ano sem conversão de fuso
-    const date = new Date(dateStr);
-    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
-    return date.toLocaleDateString('pt-BR');
+
+    // Se for apenas uma data YYYY-MM-DD (sem hora), faz o split para evitar problemas de fuso
+    if (dateStr.length === 10 && dateStr.includes('-')) {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}/${year}`;
+    }
+
+    // Para timestamps completos (created_at), usa a data local
+    return new Date(dateStr).toLocaleDateString('pt-BR');
   };
 
   const handlePrintOrder = (order: ServiceOrder) => {
