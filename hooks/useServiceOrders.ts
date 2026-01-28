@@ -17,7 +17,7 @@ export interface ServiceOrder {
     value: number;
     notes?: string;
     delivery_date?: string;
-    items?: string; // JSON string com os itens
+    items?: any[] | string; // JSON array ou string
     vehicle_photo?: string; // URL da foto do veículo
     created_at: string;
     payment_method?: string;

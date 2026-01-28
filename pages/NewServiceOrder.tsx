@@ -15,6 +15,7 @@ interface ServiceItem {
   qty: number;
   unitPrice: number;
   type: 'part' | 'service';
+  inventory_id?: string;
 }
 
 export default function NewServiceOrder() {
@@ -165,6 +166,7 @@ export default function NewServiceOrder() {
       qty: 1,
       unitPrice: item.unit_price,
       type: 'part',
+      inventory_id: item.id,
     };
     setItems([...items, itemToAdd]);
     setShowAddItemModal(false);
@@ -236,7 +238,7 @@ export default function NewServiceOrder() {
       value: total || formData.value,
       notes: finalNotes,
       vehicle_photo: photoUrl,
-      items: items.length > 0 ? JSON.stringify(items) : null,
+      items: items.length > 0 ? items : null,
       delivery_date: formData.deliveryDate || null,
       payment_method: finalPaymentMethod || null,
       payment_due_date: formData.paymentMethod === 'Boleto' ? formData.boletoExpiration : null,

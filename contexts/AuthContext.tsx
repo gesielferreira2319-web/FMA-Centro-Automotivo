@@ -50,6 +50,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => subscription.unsubscribe();
     }, []);
 
+    const signOut = async () => {
+        try {
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error('Error signing out:', error);
+        } finally {
+            // Force clear local state and storage
+            setRole(null);
+            setSession(null);
+            setUser(null);
+            localStorage.clear();
+        }
+    };
+
     const fetchUserRole = async (userId: string) => {
         try {
             const { data, error } = await supabase
@@ -62,10 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setRole(data.role as UserRole);
             } else {
                 console.warn('User authenticated but no profile found. Access denied.');
-                setRole(null);
-                await supabase.auth.signOut();
-                // Force reload to clear any state if needed, or simply let the app redirect to login
-                // window.location.href = '/login'; 
+                await signOut();
             }
         } catch (error) {
             console.error('Error fetching role:', error);
@@ -114,11 +125,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         return { error };
-    };
-
-    const signOut = async () => {
-        await supabase.auth.signOut();
-        setRole(null);
     };
 
     return (
