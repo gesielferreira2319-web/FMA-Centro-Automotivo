@@ -33,7 +33,12 @@ export default function ServiceOrders() {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('pt-BR');
+    if (!dateStr) return '-';
+    // Adiciona T12:00:00 para garantir que a data não volte um dia devido ao fuso horário
+    // Ou usa split para pegar apenas dia/mês/ano sem conversão de fuso
+    const date = new Date(dateStr);
+    date.setMinutes(date.getMinutes() + date.getTimezoneOffset());
+    return date.toLocaleDateString('pt-BR');
   };
 
   const handlePrintOrder = (order: ServiceOrder) => {
@@ -346,14 +351,14 @@ export default function ServiceOrders() {
                     <div>
                       <span className="text-[10px] text-slate-400 block">Entrega:</span>
                       <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
-                        {viewingOrder.delivery_date ? new Date(viewingOrder.delivery_date).toLocaleDateString('pt-BR') : 'A combinar'}
+                        {viewingOrder.delivery_date ? formatDate(viewingOrder.delivery_date) : 'A combinar'}
                       </p>
                     </div>
                     {(viewingOrder as any).created_at && (
                       <div>
                         <span className="text-[10px] text-slate-400 block">Abertura:</span>
                         <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
-                          {new Date((viewingOrder as any).created_at).toLocaleDateString('pt-BR')}
+                          {formatDate((viewingOrder as any).created_at)}
                         </p>
                       </div>
                     )}
@@ -368,7 +373,7 @@ export default function ServiceOrders() {
                         <div>
                           <span className="text-[10px] text-slate-400 block">Vencimento:</span>
                           <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm text-amber-600">
-                            {new Date((viewingOrder as any).payment_due_date).toLocaleDateString('pt-BR')}
+                            {formatDate((viewingOrder as any).payment_due_date)}
                           </p>
                         </div>
                       )}
@@ -376,7 +381,7 @@ export default function ServiceOrders() {
                         <div>
                           <span className="text-[10px] text-slate-400 block">Pago em:</span>
                           <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm text-green-600">
-                            {new Date((viewingOrder as any).payment_date).toLocaleDateString('pt-BR')}
+                            {formatDate((viewingOrder as any).payment_date)}
                           </p>
                         </div>
                       )}
