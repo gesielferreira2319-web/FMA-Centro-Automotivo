@@ -64,24 +64,23 @@ export default function Dashboard() {
           .select('*', { count: 'exact', head: true })
           .neq('status', 'Concluído');
 
-        // Carregar vendas do mês atual
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
-        startOfMonth.setHours(0, 0, 0, 0);
+        // Carregar vendas e serviços dos últimos 30 dias
+        const startOfPeriod = new Date();
+        startOfPeriod.setDate(startOfPeriod.getDate() - 30);
+        startOfPeriod.setHours(0, 0, 0, 0);
 
         const { data: salesData } = await supabase
           .from('sales')
           .select('total')
-          .gte('created_at', startOfMonth.toISOString());
+          .gte('created_at', startOfPeriod.toISOString());
 
         const salesTotal = salesData?.reduce((sum, s) => sum + (s.total || 0), 0) || 0;
 
-        // Carregar OS do mês atual (Faturamento de Serviço)
-        // Considera faturado se tiver método de pagamento definido OU estiver Concluído
+        // Carregar OS do período
         const { data: osData } = await supabase
           .from('service_orders')
           .select('value, status, payment_method')
-          .gte('created_at', startOfMonth.toISOString());
+          .gte('created_at', startOfPeriod.toISOString());
 
         const osTotal = osData?.reduce((sum, os) => {
           if (os.payment_method || os.status === 'Concluído') {
@@ -212,7 +211,7 @@ export default function Dashboard() {
             <h3 className="text-2xl font-bold mt-1 dark:text-white">R$ {stats.monthlyRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
             <p className="text-xs text-green-500 flex items-center mt-1 font-medium">
               <span className="material-icons-round text-xs mr-1">calendar_today</span>
-              Mês atual
+              Últimos 30 dias
             </p>
           </div>
         </div>
