@@ -74,7 +74,23 @@ export default function Dashboard() {
           .select('total')
           .gte('created_at', startOfMonth.toISOString());
 
-        const monthlyRevenue = salesData?.reduce((sum, s) => sum + (s.total || 0), 0) || 0;
+        const salesTotal = salesData?.reduce((sum, s) => sum + (s.total || 0), 0) || 0;
+
+        // Carregar OS do mês atual (Faturamento de Serviço)
+        // Considera faturado se tiver método de pagamento definido OU estiver Concluído
+        const { data: osData } = await supabase
+          .from('service_orders')
+          .select('value, status, payment_method')
+          .gte('created_at', startOfMonth.toISOString());
+
+        const osTotal = osData?.reduce((sum, os) => {
+          if (os.payment_method || os.status === 'Concluído') {
+            return sum + (os.value || 0);
+          }
+          return sum;
+        }, 0) || 0;
+
+        const monthlyRevenue = salesTotal + osTotal;
 
         // Carregar itens com estoque baixo
         const { data: lowStock, count: lowStockCount } = await supabase
