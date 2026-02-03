@@ -164,21 +164,61 @@ export default function Financial() {
             const { start, end } = getDateRangeDates(dateRange);
 
             // 1. Payables (Contas a Pagar)
+            // Fetch items in date range
             let payablesQuery = supabase.from('accounts_payable').select('*');
             if (dateRange !== 'all') {
                 payablesQuery = payablesQuery.gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
             }
-            const { data: dbPayables } = await payablesQuery.order('due_date', { ascending: true });
+            const { data: rangePayables } = await payablesQuery.order('due_date', { ascending: true });
+
+            // Fetch ALL pending items (regardless of date)
+            const { data: pendingPayables } = await supabase
+                .from('accounts_payable')
+                .select('*')
+                .eq('status', 'pendente')
+                .order('due_date', { ascending: true });
+
+            // Merge unique payables
+            const payablesMap = new Map();
+            (rangePayables || []).forEach(p => payablesMap.set(p.id, p));
+            (pendingPayables || []).forEach(p => payablesMap.set(p.id, p));
+            const dbPayables = Array.from(payablesMap.values());
+
 
             // 2. Sales (Vendas) - Only 'balcao' and include items
-            const { data: dbSales } = await supabase.from('sales')
+            // Range Sales
+            const { data: rangeSales } = await supabase.from('sales')
                 .select('*, clients(name), sale_items(quantity, unit_price, inventory(name, cost_price))')
-                .eq('sale_type', 'balcao') // Filter STORE sales only
+                .eq('sale_type', 'balcao')
                 .gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
 
+            // Pending Sales (All time)
+            const { data: pendingSales } = await supabase.from('sales')
+                .select('*, clients(name), sale_items(quantity, unit_price, inventory(name, cost_price))')
+                .eq('sale_type', 'balcao')
+                .neq('payment_status', 'pago'); // Fetch anything not fully paid
+
+            // Merge unique Sales
+            const salesMap = new Map();
+            (rangeSales || []).forEach(s => salesMap.set(s.id, s));
+            (pendingSales || []).forEach(s => salesMap.set(s.id, s));
+            const dbSales = Array.from(salesMap.values());
+
+
             // 3. Service Orders (OS)
-            const { data: dbOS } = await supabase.from('service_orders').select('*, clients(name)')
+            // Range OS
+            const { data: rangeOS } = await supabase.from('service_orders').select('*, clients(name)')
                 .gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
+
+            // Pending OS (All time)
+            const { data: pendingOS } = await supabase.from('service_orders').select('*, clients(name)')
+                .neq('payment_status', 'pago');
+
+            // Merge unique OS
+            const osMap = new Map();
+            (rangeOS || []).forEach(o => osMap.set(o.id, o));
+            (pendingOS || []).forEach(o => osMap.set(o.id, o));
+            const dbOS = Array.from(osMap.values());
 
             // Process Data
             const _payables: Payable[] = dbPayables || [];
