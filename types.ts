@@ -3,6 +3,9 @@ export interface ServiceOrder {
   plate: string;
   client: string;
   service: string;
+  entry_amount?: number;
+  entry_method?: string;
+  installment_count?: number;
   status: 'Em Andamento' | 'Concluído' | 'Aguardando Peças' | 'Pendente';
   value: number;
   date: string;

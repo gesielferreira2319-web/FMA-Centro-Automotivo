@@ -231,14 +231,64 @@ export default function Financial() {
                     // @ts-ignore
                     client_name: s.clients?.name || 'Venda Rápida', due_date: s.payment_due_date || s.created_at
                 })),
-                ...(dbOS || []).filter(o => o.payment_method || o.status === 'Concluído').map(o => ({
-                    id: o.id, description: `OS #${o.order_number} - ${o.vehicle}`, amount: o.value || 0,
-                    type: 'os' as const, date: o.created_at, payment_method: o.payment_method || '-',
-                    status: o.status, payment_status: o.payment_status || 'pendente',
-                    // @ts-ignore
-                    client_name: o.clients?.name || o.client_name || 'Cliente', due_date: o.payment_due_date || o.created_at,
-                    vehicle: o.vehicle, plate: o.plate
-                }))
+                ...(dbOS || []).flatMap(o => {
+                    const items: Receivable[] = [];
+
+                    // 1. Entrada (se houver)
+                    if (o.entry_amount && o.entry_amount > 0) {
+                        items.push({
+                            id: `${o.id}_entry`,
+                            description: `Entrada OS #${o.order_number} - ${o.vehicle}`,
+                            amount: o.entry_amount,
+                            type: 'os',
+                            date: o.created_at,
+                            payment_method: o.entry_method || 'Dinheiro',
+                            status: 'Concluído',
+                            payment_status: 'pago',
+                            // @ts-ignore
+                            client_name: o.clients?.name || o.client_name || 'Cliente',
+                            due_date: o.created_at,
+                            vehicle: o.vehicle,
+                            plate: o.plate
+                        });
+                    }
+
+                    // 2. Restante (ou total se não houver entrada)
+                    const remainingAmount = (o.value || 0) - (o.entry_amount || 0);
+                    if (remainingAmount > 0) {
+                        const count = o.installment_count || 1;
+                        const paidCount = o.installments_paid || 0;
+                        const isFullyPaid = o.payment_status === 'pago';
+                        const effectivePaidCount = isFullyPaid ? count : paidCount;
+                        const installmentValue = remainingAmount / count;
+
+                        for (let i = 0; i < count; i++) {
+                            const isPaid = i < effectivePaidCount;
+                            const baseDate = new Date(o.payment_due_date || o.created_at);
+                            const dueDate = new Date(baseDate);
+                            dueDate.setMonth(baseDate.getMonth() + i);
+
+                            items.push({
+                                id: `${o.id}_inst_${i + 1}`,
+                                description: o.entry_amount
+                                    ? `Restante OS #${o.order_number} (${i + 1}/${count})`
+                                    : `OS #${o.order_number} (${i + 1}/${count}) - ${o.vehicle || 'Veículo'}`,
+                                amount: installmentValue,
+                                type: 'os',
+                                date: o.created_at,
+                                payment_method: o.payment_method || '-',
+                                status: isPaid ? 'Concluído' : 'Pendente',
+                                payment_status: isPaid ? 'pago' : 'pendente',
+                                // @ts-ignore
+                                client_name: o.clients?.name || o.client_name || 'Cliente',
+                                due_date: dueDate.toISOString(),
+                                vehicle: o.vehicle,
+                                plate: o.plate
+                            });
+                        }
+                    }
+                    return items;
+                })
             ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
             // Calculate Stats
@@ -483,10 +533,50 @@ export default function Financial() {
     };
 
     const handleReceive = async (id: string) => {
+        // Handle Installments
+        if (id.includes('_inst_')) {
+            const [realId, _, instIndexStr] = id.split('_');
+            const instIndex = parseInt(instIndexStr);
+
+            if (!confirm(`Confirmar recebimento da parcela ${instIndex}?`)) return;
+
+            // Fetch current OS state
+            const { data: os } = await supabase.from('service_orders').select('installments_paid, installment_count, payment_status').eq('id', realId).single();
+
+            if (os) {
+                const currentPaid = os.installments_paid || 0;
+                const total = os.installment_count || 1;
+
+                // Allow specific installment payment logic or just increment?
+                // Using increment logic to ensure progress. 
+                // However, user might click "Parcela 3" while 1 and 2 are pending.
+                // Strictly speaking we should increment.
+                // Assuming intentional click.
+
+                let newPaid = currentPaid + 1;
+                // Avoid overflow
+                if (newPaid > total) newPaid = total;
+
+                const updatePayload: any = { installments_paid: newPaid };
+
+                if (newPaid >= total) {
+                    updatePayload.payment_status = 'pago';
+                    updatePayload.payment_date = new Date().toISOString();
+                }
+
+                await supabase.from('service_orders').update(updatePayload).eq('id', realId);
+                loadData();
+            }
+            return;
+        }
+
+        if (id.includes('_entry')) return; // Entry logic usually handled at creation
+
         if (!confirm('Confirmar recebimento?')) return;
         await supabase.from('service_orders').update({
             payment_status: 'pago',
-            payment_date: new Date().toISOString()
+            payment_date: new Date().toISOString(),
+            installments_paid: 1 // Assume full legacy pay
         }).eq('id', id);
         loadData();
     };

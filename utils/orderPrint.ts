@@ -59,126 +59,139 @@ const formatCurrency = (val: number) => {
 /**
  * Gera o HTML do Boleto/Recibo PIX
  */
-export const generateBoletoHTML = (data: BoletoData): string => {
+/**
+ * Gera o HTML do Boleto/Recibo PIX
+ */
+export const generateBoletoHTML = (data: BoletoData, index?: number, total?: number): string => {
     return `
+        <div class="boleto-container" style="${index !== undefined && index > 0 ? 'page-break-before: always;' : ''}">
+            <div class="header">
+                <div class="company-info">
+                    <h1>${data.company_name}</h1>
+                    <p>${data.cnpj}</p>
+                    <p>${data.address}</p>
+                </div>
+                <div class="doc-title">
+                    <h2>Recibo de Pagamento</h2>
+                    <p>#${data.id} ${total && total > 1 ? `(${index! + 1}/${total})` : ''}</p>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col" style="flex: 2">
+                    <div class="label">Pagador (Cliente)</div>
+                    <div class="value">${data.client_name}</div>
+                </div>
+                <div class="col">
+                    <div class="label">Documento</div>
+                    <div class="value">${data.client_doc || '-'}</div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col" style="flex: 3">
+                    <div class="label">Descrição</div>
+                    <div class="value">${data.description}</div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col">
+                    <div class="label">Data de Emissão</div>
+                    <div class="value">${formatDate(data.created_at)}</div>
+                </div>
+                <div class="col">
+                    <div class="label">Vencimento</div>
+                    <div class="value" style="color: #d00">${formatDate(data.due_date)}</div>
+                </div>
+            </div>
+            
+            <div class="total-box">
+                <span class="total-label">Valor da Parcela</span>
+                <span class="total-value">${formatCurrency(data.amount)}</span>
+            </div>
+            
+            <div class="pix-box">
+                <div class="pix-title">PAGAMENTO VIA PIX</div>
+                <p class="pix-inst">Utilize a chave abaixo para realizar o pagamento:</p>
+                
+                ${data.pix_qrcode ? `
+                <div class="pix-qr">
+                    <img src="${data.pix_qrcode}" alt="QR Code PIX" />
+                </div>
+                ` : ''}
+
+                <div class="pix-key">${data.pix_key}</div>
+                <p class="pix-inst">Tipo de Chave: <strong>${data.pix_key_type}</strong></p>
+                <p style="margin-top: 10px; font-size: 10px;">Após o pagamento, envie o comprovante para facilitar a baixa.</p>
+            </div>
+            
+            <div class="footer">
+                Documento gerado eletronicamente em ${new Date().toLocaleString('pt-BR')}.
+                Não serve como nota fiscal.
+            </div>
+        </div>
+    `;
+}
+
+const getBoletosStyles = () => `
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; }
+        body { padding: 40px; max-width: 800px; margin: 0 auto; background: #fff; }
+        .boleto-container { border: 2px solid #000; padding: 20px; margin-bottom: 40px; }
+        .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
+        .company-info h1 { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+        .company-info p { font-size: 12px; }
+        .doc-title { text-align: right; }
+        .doc-title h2 { font-size: 24px; font-weight: bold; text-transform: uppercase; }
+        .doc-title p { font-size: 14px; font-weight: bold; margin-top: 5px; }
+        
+        .row { display: flex; margin-bottom: 15px; }
+        .col { flex: 1; padding-right: 20px; }
+        .label { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #666; margin-bottom: 3px; }
+        .value { font-size: 14px; font-weight: bold; border-bottom: 1px dotted #ccc; padding-bottom: 2px; width: 100%; display: block; }
+        
+        .pix-box { border: 2px dashed #000; padding: 20px; text-align: center; margin: 30px 0; background: #f9f9f9; }
+        .pix-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+        .pix-key { font-size: 20px; font-weight: bold; padding: 10px; background: #fff; border: 1px solid #ddd; margin: 10px 0; word-break: break-all; }
+        .pix-inst { font-size: 12px; }
+        .pix-qr { margin: 15px auto; max-width: 150px; }
+        .pix-qr img { width: 100%; height: auto; border: 1px solid #ddd; padding: 5px; background: #fff; }
+        
+        .total-box { background: #000; color: #fff; padding: 10px; text-align: right; margin-top: 20px; }
+        .total-label { font-size: 12px; text-transform: uppercase; margin-right: 10px; }
+        .total-value { font-size: 24px; font-weight: bold; }
+        
+        .footer { margin-top: 40px; font-size: 10px; text-align: center; border-top: 1px solid #ccc; padding-top: 10px; }
+        
+        @media print {
+            body { padding: 0; }
+            .boleto-container { border: 1px solid #000; margin-bottom: 0; height: 100vh; }
+        }
+    </style>
+`;
+
+/**
+ * Imprime múltiplos Boletos/Recibos PIX
+ */
+export const printBoletos = (boletos: BoletoData[]): void => {
+    const styles = getBoletosStyles();
+    const content = boletos.map((b, i) => generateBoletoHTML(b, i, boletos.length)).join('');
+
+    const html = `
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
-            <title>Fatura/Recibo #${data.id}</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace; }
-                body { padding: 40px; max-width: 800px; margin: 0 auto; background: #fff; }
-                .boleto-container { border: 2px solid #000; padding: 20px; }
-                .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 20px; }
-                .company-info h1 { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-                .company-info p { font-size: 12px; }
-                .doc-title { text-align: right; }
-                .doc-title h2 { font-size: 24px; font-weight: bold; text-transform: uppercase; }
-                .doc-title p { font-size: 14px; font-weight: bold; margin-top: 5px; }
-                
-                .row { display: flex; margin-bottom: 15px; }
-                .col { flex: 1; padding-right: 20px; }
-                .label { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #666; margin-bottom: 3px; }
-                .value { font-size: 14px; font-weight: bold; border-bottom: 1px dotted #ccc; padding-bottom: 2px; width: 100%; display: block; }
-                
-                .pix-box { border: 2px dashed #000; padding: 20px; text-align: center; margin: 30px 0; background: #f9f9f9; }
-                .pix-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
-                .pix-key { font-size: 20px; font-weight: bold; padding: 10px; background: #fff; border: 1px solid #ddd; margin: 10px 0; word-break: break-all; }
-                .pix-inst { font-size: 12px; }
-                .pix-qr { margin: 15px auto; max-width: 150px; }
-                .pix-qr img { width: 100%; height: auto; border: 1px solid #ddd; padding: 5px; background: #fff; }
-                
-                .total-box { background: #000; color: #fff; padding: 10px; text-align: right; margin-top: 20px; }
-                .total-label { font-size: 12px; text-transform: uppercase; margin-right: 10px; }
-                .total-value { font-size: 24px; font-weight: bold; }
-                
-                .footer { margin-top: 40px; font-size: 10px; text-align: center; border-top: 1px solid #ccc; padding-top: 10px; }
-                
-                @media print {
-                    body { padding: 0; }
-                    .boleto-container { border: 1px solid #000; }
-                }
-            </style>
+            <title>Carnê de Pagamento</title>
+            ${styles}
         </head>
         <body>
-            <div class="boleto-container">
-                <div class="header">
-                    <div class="company-info">
-                        <h1>${data.company_name}</h1>
-                        <p>${data.cnpj}</p>
-                        <p>${data.address}</p>
-                    </div>
-                    <div class="doc-title">
-                        <h2>Recibo de Pagamento</h2>
-                        <p>#${data.id}</p>
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col" style="flex: 2">
-                        <div class="label">Pagador (Cliente)</div>
-                        <div class="value">${data.client_name}</div>
-                    </div>
-                    <div class="col">
-                        <div class="label">Documento</div>
-                        <div class="value">${data.client_doc || '-'}</div>
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col" style="flex: 3">
-                        <div class="label">Descrição</div>
-                        <div class="value">${data.description}</div>
-                    </div>
-                </div>
-                
-                <div class="row">
-                    <div class="col">
-                        <div class="label">Data de Emissão</div>
-                        <div class="value">${formatDate(data.created_at)}</div>
-                    </div>
-                    <div class="col">
-                        <div class="label">Vencimento</div>
-                        <div class="value" style="color: #d00">${formatDate(data.due_date)}</div>
-                    </div>
-                </div>
-                
-                <div class="total-box">
-                    <span class="total-label">Valor Total</span>
-                    <span class="total-value">${formatCurrency(data.amount)}</span>
-                </div>
-                
-                <div class="pix-box">
-                    <div class="pix-title">PAGAMENTO VIA PIX</div>
-                    <p class="pix-inst">Utilize a chave abaixo para realizar o pagamento:</p>
-                    
-                    ${data.pix_qrcode ? `
-                    <div class="pix-qr">
-                        <img src="${data.pix_qrcode}" alt="QR Code PIX" />
-                    </div>
-                    ` : ''}
-
-                    <div class="pix-key">${data.pix_key}</div>
-                    <p class="pix-inst">Tipo de Chave: <strong>${data.pix_key_type}</strong></p>
-                    <p style="margin-top: 10px; font-size: 10px;">Após o pagamento, envie o comprovante para facilitar a baixa.</p>
-                </div>
-                
-                <div class="footer">
-                    Documento gerado eletronicamente em ${new Date().toLocaleString('pt-BR')}.
-                    Não serve como nota fiscal.
-                </div>
-            </div>
+            ${content}
         </body>
         </html>
     `;
-}
 
-/**
- * Imprime o Boleto/Recibo PIX
- */
-export const printBoleto = (data: BoletoData): void => {
-    const html = generateBoletoHTML(data);
     const printWindow = window.open('', '_blank');
     if (printWindow) {
         printWindow.document.write(html);
@@ -189,21 +202,36 @@ export const printBoleto = (data: BoletoData): void => {
 }
 
 /**
- * Faz o download do Boleto/Recibo PIX como PDF
+ * Mantém compatibilidade com chamada única (depreciado, usar printBoletos)
  */
-export const downloadBoleto = async (data: BoletoData): Promise<void> => {
-    const html = generateBoletoHTML(data);
+export const printBoleto = (data: BoletoData): void => {
+    printBoletos([data]);
+}
+
+/**
+ * Faz o download de múltiplos Boletos/Recibos PIX como PDF
+ */
+export const downloadBoletos = async (boletos: BoletoData[]): Promise<void> => {
+    const styles = getBoletosStyles();
+    const content = boletos.map((b, i) => generateBoletoHTML(b, i, boletos.length)).join('');
+
+    const html = `
+        <div style="width: 210mm;">
+            ${styles}
+            ${content}
+        </div>
+    `;
+
     const html2pdf = (await import('html2pdf.js')).default;
 
     const container = document.createElement('div');
     container.innerHTML = html;
-    container.style.width = '210mm';
     container.style.background = 'white';
     document.body.appendChild(container);
 
     const options = {
-        margin: [10, 10, 10, 10] as [number, number, number, number],
-        filename: `Boleto_Pix_${data.id}.pdf`,
+        margin: [0, 0, 0, 0] as [number, number, number, number],
+        filename: `Boletos_${boletos[0].id}_${new Date().toISOString().split('T')[0]}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
@@ -212,11 +240,18 @@ export const downloadBoleto = async (data: BoletoData): Promise<void> => {
     try {
         await html2pdf().set(options).from(container).save();
     } catch (error) {
-        console.error('Erro ao baixar boleto:', error);
-        alert('Erro ao baixar boleto PDF.');
+        console.error('Erro ao baixar boletos:', error);
+        alert('Erro ao baixar boletos PDF.');
     } finally {
         document.body.removeChild(container);
     }
+}
+
+/**
+ * Mantém compatibilidade com chamada única
+ */
+export const downloadBoleto = async (data: BoletoData): Promise<void> => {
+    await downloadBoletos([data]);
 }
 
 /**

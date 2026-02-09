@@ -44,6 +44,8 @@ export default function NewServiceOrder() {
     notes: '',
     value: 0,
     deliveryDate: '',
+    entryAmount: 0,
+    entryMethod: '',
     paymentMethod: '',
     installments: '1x',
     boletoExpiration: '',
@@ -78,10 +80,13 @@ export default function NewServiceOrder() {
           service: editingOrder.service || '',
           notes: editingOrder.notes || '',
           value: editingOrder.value || 0,
+
+          entryAmount: (editingOrder as any).entry_amount || 0,
+          entryMethod: (editingOrder as any).entry_method || '',
           deliveryDate: editingOrder.delivery_date || '',
           paymentMethod: (editingOrder as any).payment_method || '',
           boletoExpiration: (editingOrder as any).payment_due_date || '',
-          installments: '1x', // Tentar extrair de notes se necessário, mas '1x' é safe default
+          installments: editingOrder.installment_count ? `${editingOrder.installment_count}x` : '1x',
           status: editingOrder.status
         });
 
@@ -225,7 +230,16 @@ export default function NewServiceOrder() {
 
     // Determine Payment Status
     const isImmediatePayment = ['Dinheiro', 'PIX', 'Cartão de Débito'].includes(formData.paymentMethod);
-    const paymentStatus: 'pendente' | 'pago' = isImmediatePayment ? 'pago' : 'pendente';
+    let paymentStatus: 'pendente' | 'pago' | 'parcial' = isImmediatePayment ? 'pago' : 'pendente';
+
+    // Se houve entrada
+    if (formData.entryAmount > 0) {
+      if (formData.entryAmount >= (total || formData.value)) {
+        paymentStatus = 'pago';
+      } else {
+        paymentStatus = 'pendente'; // O restante é pendente
+      }
+    }
 
     const orderData = {
       client_id: selectedClient?.id || null,
@@ -242,6 +256,9 @@ export default function NewServiceOrder() {
       items: items.length > 0 ? items : null,
       delivery_date: formData.deliveryDate || null,
       payment_method: finalPaymentMethod || null,
+      entry_amount: formData.entryAmount || 0,
+      entry_method: formData.entryMethod || null,
+      installment_count: parseInt(formData.installments.replace('x', '')) || 1,
       payment_due_date: formData.paymentMethod === 'Boleto' ? formData.boletoExpiration : null,
       payment_status: paymentStatus,
     };
@@ -730,16 +747,52 @@ export default function NewServiceOrder() {
                   </select>
                 </div>
 
-                {formData.paymentMethod === 'Cartão de Crédito' && (
+
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="animate-in fade-in slide-in-from-top-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase">Parcelas</label>
+                    <label className="text-xs font-bold text-slate-400 uppercase">Valor de Entrada</label>
+                    <div className="relative mt-1">
+                      <span className="absolute left-3 top-2 text-slate-500">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.entryAmount}
+                        onChange={(e) => setFormData({ ...formData, entryAmount: parseFloat(e.target.value) || 0 })}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-8 pr-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none text-slate-800 dark:text-slate-200"
+                        placeholder="0,00"
+                      />
+                    </div>
+                  </div>
+
+                  {formData.entryAmount > 0 && (
+                    <div className="animate-in fade-in slide-in-from-top-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase">Método da Entrada</label>
+                      <select
+                        value={formData.entryMethod}
+                        onChange={(e) => setFormData({ ...formData, entryMethod: e.target.value })}
+                        className="w-full mt-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none text-slate-800 dark:text-slate-200"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="Dinheiro">Dinheiro</option>
+                        <option value="PIX">PIX</option>
+                        <option value="Cartão de Débito">Cartão de Débito</option>
+                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {(formData.paymentMethod === 'Cartão de Crédito' || formData.paymentMethod === 'Boleto') && (
+                  <div className="animate-in fade-in slide-in-from-top-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase">Parcelas ({formData.paymentMethod})</label>
                     <select
                       value={formData.installments}
                       onChange={(e) => setFormData({ ...formData, installments: e.target.value })}
                       className="w-full mt-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none text-slate-800 dark:text-slate-200"
                     >
                       {[1, 2, 3, 4, 5, 6, 10, 12].map(num => (
-                        <option key={num} value={`${num}x`}>{num}x</option>
+                        <option key={num} value={`${num}x`}>{num}x Sem Juros</option>
                       ))}
                     </select>
                   </div>
@@ -790,8 +843,8 @@ export default function NewServiceOrder() {
               )}
             </button>
           </div>
-        </div>
-      </form>
+        </div >
+      </form >
 
       {/* Modal Adicionar Item */}
       {

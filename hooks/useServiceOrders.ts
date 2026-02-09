@@ -24,6 +24,10 @@ export interface ServiceOrder {
     payment_status?: 'pendente' | 'pago';
     payment_due_date?: string;
     payment_date?: string;
+    entry_amount?: number;
+    entry_method?: string;
+    installment_count?: number;
+    installments_paid?: number;
 }
 
 export function useServiceOrders() {
@@ -74,6 +78,10 @@ export function useServiceOrders() {
             notes: orderData.notes || null,
             payment_method: orderData.payment_method || null,
             payment_status: orderData.payment_status || 'pendente', // Adicionado
+            entry_amount: orderData.entry_amount || 0,
+            entry_method: orderData.entry_method || null,
+            installment_count: orderData.installment_count || 1,
+            installments_paid: 0,
         };
 
         // Campos opcionais

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useServiceOrders, ServiceOrder } from '../hooks/useServiceOrders';
-import { printOrder, downloadOrder, sendOrderToWhatsApp, printBoleto, downloadBoleto, sendBoletoToWhatsApp } from '../utils/orderPrint';
+import { printOrder, downloadOrder, sendOrderToWhatsApp, printBoletos, downloadBoletos, sendBoletoToWhatsApp } from '../utils/orderPrint';
 import { DropdownButton } from '../components/DropdownButton';
 import { useSettings } from '../hooks/useSettings';
 
@@ -150,11 +150,11 @@ export default function ServiceOrders() {
                       <select
                         value={order.status}
                         onChange={(e) => handleStatusChange(order, e.target.value as ServiceOrder['status'])}
-                        className={`px - 3 py - 1 text - [11px] font - bold rounded - full border cursor - pointer ${order.status === 'Em Andamento' ? 'bg-blue-100 text-blue-600 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800' :
+                        className={`px-3 py-1 text-[11px] font-bold rounded-full border cursor-pointer ${order.status === 'Em Andamento' ? 'bg-blue-100 text-blue-600 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800' :
                           order.status === 'Concluído' ? 'bg-green-100 text-green-600 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' :
                             order.status === 'Aguardando Peças' ? 'bg-orange-100 text-secondary border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' :
                               'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
-                          } `}
+                          }`}
                       >
                         <option value="Pendente">PENDENTE</option>
                         <option value="Em Andamento">EM ANDAMENTO</option>
@@ -283,7 +283,7 @@ export default function ServiceOrders() {
                               <tr key={idx}>
                                 <td className="py-2 text-slate-700 dark:text-slate-300 font-medium">{item.name}</td>
                                 <td className="py-2 text-center">
-                                  <span className={`text - xs px - 2 py - 0.5 rounded - full font - bold ${item.type === 'service' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'} `}>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${item.type === 'service' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'}`}>
                                     {item.type === 'service' ? 'Serviço' : 'Peça'}
                                   </span>
                                 </td>
@@ -320,74 +320,160 @@ export default function ServiceOrders() {
               })()}
 
               {/* Status, Valor e Data */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Status da OS</h4>
-                  <span className={`inline-block px-3 py-1 text-sm font-bold rounded-full ${viewingOrder.status === 'Concluído' ? 'bg-green-100 text-green-600' :
-                    viewingOrder.status === 'Em Andamento' ? 'bg-blue-100 text-blue-600' :
-                      viewingOrder.status === 'Aguardando Peças' ? 'bg-orange-100 text-orange-600' :
-                        'bg-slate-100 text-slate-600'
-                    }`}>
-                    {viewingOrder.status || 'Pendente'}
-                  </span>
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                {/* Coluna 1: Status e Datas (Combinados) */}
+                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl space-y-4">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Status da OS</h4>
+                    <span className={`inline-block px-3 py-1 text-sm font-bold rounded-full ${viewingOrder.status === 'Concluído' ? 'bg-green-100 text-green-600' :
+                      viewingOrder.status === 'Em Andamento' ? 'bg-blue-100 text-blue-600' :
+                        viewingOrder.status === 'Aguardando Peças' ? 'bg-orange-100 text-orange-600' :
+                          'bg-slate-100 text-slate-600'
+                      }`}>
+                      {viewingOrder.status || 'Pendente'}
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Datas</h4>
+                    <div className="space-y-2">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">Entrega:</span>
+                        <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
+                          {viewingOrder.delivery_date ? formatDate(viewingOrder.delivery_date) : 'A combinar'}
+                        </p>
+                      </div>
+                      {(viewingOrder as any).created_at && (
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">Abertura:</span>
+                          <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
+                            {formatDate((viewingOrder as any).created_at)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Financeiro</h4>
-                  <p className="text-2xl font-bold text-green-600">
-                    R$ {(viewingOrder.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </p>
-                  {(viewingOrder as any).payment_method && (
-                    <div className="mt-1">
-                      <p className="text-xs text-slate-500 uppercase font-bold">
-                        {(viewingOrder as any).payment_method}
+                {/* Coluna 2 e 3: Financeiro (Expandido) */}
+                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl lg:col-span-2">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 border-b border-slate-200 dark:border-slate-700 pb-2">Resumo Financeiro</h4>
+                  {(viewingOrder as any).entry_amount > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Lado Esquerdo: Valores */}
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-slate-500">Valor Total</span>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">
+                            R$ {(viewingOrder.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center text-sm text-green-600">
+                          <span className="flex flex-col leading-tight">
+                            <span>Entrada</span>
+                            <span className="text-[10px] opacity-75">({(viewingOrder as any).entry_method || '-'})</span>
+                          </span>
+                          <span className="font-bold">
+                            - R$ {(viewingOrder as any).entry_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center text-base font-bold text-amber-600 border-t border-slate-200 dark:border-slate-700 pt-2">
+                          <span>Restante</span>
+                          <span>
+                            R$ {((viewingOrder.value || 0) - (viewingOrder as any).entry_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Lado Direito: Detalhes Pagamento */}
+                      <div className="space-y-3 pl-0 sm:pl-4 sm:border-l sm:border-slate-200 dark:sm:border-slate-700">
+                        {(viewingOrder as any).installment_count > 1 && (
+                          <div>
+                            <span className="text-xs text-slate-400 block mb-1">Parcelamento</span>
+                            <div className="bg-white dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700">
+                              <p className="font-bold text-slate-700 dark:text-slate-300 text-sm">
+                                {(viewingOrder as any).installment_count}x de R$ {(((viewingOrder.value || 0) - (viewingOrder as any).entry_amount) / (viewingOrder as any).installment_count).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <span className="text-xs text-slate-400 block mb-1">Status do Restante</span>
+                          <span className={`inline-block px-3 py-1 text-xs font-bold rounded-full ${(viewingOrder as any).payment_status === 'pago' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {(viewingOrder as any).payment_status === 'pago' ? 'PAGO' : 'PENDENTE'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full py-2">
+                      <p className="text-3xl font-bold text-green-600 mb-2">
+                        R$ {(viewingOrder.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${(viewingOrder as any).payment_status === 'pago' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {(viewingOrder as any).payment_status === 'pago' ? 'PAGO' : 'PENDENTE'}
-                      </span>
+                      {(viewingOrder as any).payment_method && (
+                        <div className="text-center">
+                          <p className="text-sm text-slate-500 uppercase font-bold mb-2">
+                            {(viewingOrder as any).payment_method}
+                            {(viewingOrder as any).installment_count > 1 && ` (${(viewingOrder as any).installment_count}x)`}
+                          </p>
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full ${(viewingOrder as any).payment_status === 'pago' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                            {(viewingOrder as any).payment_status === 'pago' ? 'PAGO' : 'PENDENTE'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Datas</h4>
-                  <div className="space-y-2">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block">Entrega:</span>
-                      <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
-                        {viewingOrder.delivery_date ? formatDate(viewingOrder.delivery_date) : 'A combinar'}
-                      </p>
-                    </div>
-                    {(viewingOrder as any).created_at && (
-                      <div>
-                        <span className="text-[10px] text-slate-400 block">Abertura:</span>
-                        <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
-                          {formatDate((viewingOrder as any).created_at)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {((viewingOrder as any).payment_due_date || (viewingOrder as any).payment_date) && (
+                {/* Coluna 4: Vencimento / Pagamento (Lista) */}
+                {((viewingOrder as any).payment_due_date || (viewingOrder as any).payment_date || (viewingOrder as any).installment_count > 1) && (
                   <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Vencimento / Pagamento</h4>
-                    <div className="space-y-2">
-                      {(viewingOrder as any).payment_due_date && (
-                        <div>
-                          <span className="text-[10px] text-slate-400 block">Vencimento:</span>
-                          <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm text-amber-600">
-                            {formatDate((viewingOrder as any).payment_due_date)}
-                          </p>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Vencimentos</h4>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {(viewingOrder as any).installment_count > 1 ? (
+                        <div className="space-y-2">
+                          {Array.from({ length: (viewingOrder as any).installment_count }).map((_, i) => {
+                            const baseDate = new Date((viewingOrder as any).payment_due_date || viewingOrder.created_at);
+                            const dueDate = new Date(baseDate);
+                            dueDate.setMonth(baseDate.getMonth() + i);
+                            const isPaid = (i + 1) <= ((viewingOrder as any).installments_paid || 0);
+
+                            return (
+                              <div key={i} className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
+                                <div>
+                                  <span className="text-[10px] text-slate-400 block">Parcela {i + 1}/{(viewingOrder as any).installment_count}</span>
+                                  <p className={`font-semibold text-sm ${isPaid ? 'text-green-600' : 'text-amber-600'}`}>
+                                    {dueDate.toLocaleDateString('pt-BR')}
+                                  </p>
+                                </div>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isPaid ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                  {isPaid ? 'PAGO' : 'PENDENTE'}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
-                      )}
-                      {(viewingOrder as any).payment_date && (
-                        <div>
-                          <span className="text-[10px] text-slate-400 block">Pago em:</span>
-                          <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm text-green-600">
-                            {formatDate((viewingOrder as any).payment_date)}
-                          </p>
-                        </div>
+                      ) : (
+                        <>
+                          {(viewingOrder as any).payment_due_date && (
+                            <div>
+                              <span className="text-[10px] text-slate-400 block">Vencimento:</span>
+                              <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm text-amber-600">
+                                {formatDate((viewingOrder as any).payment_due_date)}
+                              </p>
+                            </div>
+                          )}
+                          {(viewingOrder as any).payment_date && (
+                            <div>
+                              <span className="text-[10px] text-slate-400 block">Pago em:</span>
+                              <p className="font-semibold text-slate-700 dark:text-slate-300 text-sm text-green-600">
+                                {formatDate((viewingOrder as any).payment_date)}
+                              </p>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -423,21 +509,36 @@ export default function ServiceOrders() {
                     {
                       label: 'Imprimir Boleto',
                       icon: 'qr_code',
-                      onClick: () => printBoleto({
-                        company_name: settings.company_name,
-                        cnpj: settings.cnpj,
-                        address: settings.address,
-                        pix_key: settings.pix_key || 'Chave não configurada',
-                        pix_key_type: settings.pix_key_type || 'CPF',
-                        amount: viewingOrder.value || 0,
-                        due_date: (viewingOrder as any).payment_due_date,
-                        client_name: viewingOrder.client_name || 'Cliente',
-                        client_doc: 'Não informado',
-                        description: `Pagamento OS #${viewingOrder.order_number}`,
-                        created_at: viewingOrder.created_at,
-                        pix_qrcode: settings.pix_qrcode,
-                        id: viewingOrder.id
-                      })
+                      onClick: () => {
+                        const entry = (viewingOrder as any).entry_amount || 0;
+                        const total = viewingOrder.value || 0;
+                        const remaining = total - entry;
+                        const count = (viewingOrder as any).installment_count || 1;
+                        const amount = remaining / count;
+
+                        const boletos = Array.from({ length: count }).map((_, i) => {
+                          const dueDate = new Date((viewingOrder as any).payment_due_date || viewingOrder.created_at);
+                          dueDate.setMonth(dueDate.getMonth() + i);
+
+                          return {
+                            company_name: settings.company_name,
+                            cnpj: settings.cnpj,
+                            address: settings.address,
+                            pix_key: settings.pix_key || 'Chave não configurada',
+                            pix_key_type: settings.pix_key_type || 'CPF',
+                            amount: amount,
+                            due_date: dueDate.toISOString(),
+                            client_name: viewingOrder.client_name || 'Cliente',
+                            client_doc: 'Não informado',
+                            description: `Pagamento OS #${viewingOrder.order_number} - Parcela ${i + 1}/${count}`,
+                            created_at: viewingOrder.created_at,
+                            pix_qrcode: settings.pix_qrcode,
+                            id: viewingOrder.id
+                          };
+                        });
+
+                        printBoletos(boletos);
+                      }
                     }
                   ]}
                 />
@@ -464,21 +565,36 @@ export default function ServiceOrders() {
                     {
                       label: 'Baixar Boleto PDF',
                       icon: 'qr_code',
-                      onClick: () => downloadBoleto({
-                        company_name: settings.company_name,
-                        cnpj: settings.cnpj,
-                        address: settings.address,
-                        pix_key: settings.pix_key || 'Chave não configurada',
-                        pix_key_type: settings.pix_key_type || 'CPF',
-                        amount: viewingOrder.value || 0,
-                        due_date: (viewingOrder as any).payment_due_date,
-                        client_name: viewingOrder.client_name || 'Cliente',
-                        client_doc: 'Não informado',
-                        description: `Pagamento OS #${viewingOrder.order_number}`,
-                        created_at: viewingOrder.created_at,
-                        pix_qrcode: settings.pix_qrcode,
-                        id: viewingOrder.id
-                      })
+                      onClick: () => {
+                        const entry = (viewingOrder as any).entry_amount || 0;
+                        const total = viewingOrder.value || 0;
+                        const remaining = total - entry;
+                        const count = (viewingOrder as any).installment_count || 1;
+                        const amount = remaining / count;
+
+                        const boletos = Array.from({ length: count }).map((_, i) => {
+                          const dueDate = new Date((viewingOrder as any).payment_due_date || viewingOrder.created_at);
+                          dueDate.setMonth(dueDate.getMonth() + i);
+
+                          return {
+                            company_name: settings.company_name,
+                            cnpj: settings.cnpj,
+                            address: settings.address,
+                            pix_key: settings.pix_key || 'Chave não configurada',
+                            pix_key_type: settings.pix_key_type || 'CPF',
+                            amount: amount,
+                            due_date: dueDate.toISOString(),
+                            client_name: viewingOrder.client_name || 'Cliente',
+                            client_doc: 'Não informado',
+                            description: `Pagamento OS #${viewingOrder.order_number} - Parcela ${i + 1}/${count}`,
+                            created_at: viewingOrder.created_at,
+                            pix_qrcode: settings.pix_qrcode,
+                            id: viewingOrder.id
+                          };
+                        });
+
+                        downloadBoletos(boletos);
+                      }
                     }
                   ]}
                 />
