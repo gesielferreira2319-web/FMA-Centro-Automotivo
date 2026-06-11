@@ -959,16 +959,16 @@ export default function Financial() {
                 {/* --- RECEIVABLE DETAILS MODAL --- */}
                 {
                     viewingReceivable && (
-                        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
-                                <div className="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center">
+                        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+                                <div className="bg-slate-50 p-4 border-b border-slate-100 flex justify-between items-center shrink-0">
                                     <h3 className="font-bold text-slate-700 flex items-center gap-2">
                                         <span className="material-icons-round text-blue-600">receipt</span>
                                         Detalhes do Recebimento
                                     </h3>
                                     <button onClick={() => setViewingReceivable(null)} className="hover:bg-slate-200 rounded p-1"><span className="material-icons-round">close</span></button>
                                 </div>
-                                <div className="p-6 space-y-4">
+                                <div className="p-4 sm:p-6 space-y-4 overflow-y-auto grow">
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <p className="text-xs font-bold text-slate-400 uppercase">Cliente</p>
@@ -1367,13 +1367,13 @@ export default function Financial() {
 
             {/* --- MODAL --- */}
             {showModal && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="bg-blue-600 p-4 text-white flex justify-between items-center">
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+                        <div className="bg-blue-600 p-4 text-white flex justify-between items-center shrink-0">
                             <h3 className="font-bold">{editingAccount ? 'Editar Conta' : 'Nova Conta a Pagar'}</h3>
                             <button onClick={() => setShowModal(false)} className="hover:bg-white/20 rounded p-1"><span className="material-icons-round">close</span></button>
                         </div>
-                        <form onSubmit={handleSaveAccount} className="p-6 space-y-4">
+                        <form onSubmit={handleSaveAccount} className="p-4 sm:p-6 space-y-4 overflow-y-auto grow">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Descrição</label>
                                 <input required type="text" value={accountForm.description} onChange={e => setAccountForm({ ...accountForm, description: e.target.value })}

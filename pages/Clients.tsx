@@ -484,7 +484,7 @@ export default function Clients() {
             {/* Modal de Novo/Editar Cliente */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
                         <div className="p-6 border-b border-slate-200 dark:border-slate-700">
                             <div className="flex justify-between items-center">
                                 <h3 className="text-xl font-bold text-slate-800 dark:text-white">
@@ -496,7 +496,7 @@ export default function Clients() {
                             </div>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto grow">
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase">Nome *</label>
                                 <input
@@ -897,50 +897,52 @@ export default function Clients() {
                                         return (
                                             <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl">
                                                 <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Peças e Serviços</h4>
-                                                <table className="w-full text-sm">
-                                                    <thead className="border-b border-slate-200 dark:border-slate-700">
-                                                        <tr className="text-slate-500">
-                                                            <th className="py-2 text-left">Item</th>
-                                                            <th className="py-2 text-center">Tipo</th>
-                                                            <th className="py-2 text-center">Qtd</th>
-                                                            <th className="py-2 text-right">Unitário</th>
-                                                            <th className="py-2 text-right">Total</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                                        {parsedItems.map((item: any, idx: number) => (
-                                                            <tr key={idx}>
-                                                                <td className="py-2 text-slate-700 dark:text-slate-300 font-medium">{item.name}</td>
-                                                                <td className="py-2 text-center">
-                                                                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${item.type === 'service' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'}`}>
-                                                                        {item.type === 'service' ? 'Serviço' : 'Peça'}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="py-2 text-center text-slate-600 dark:text-slate-400">{item.qty}</td>
-                                                                <td className="py-2 text-right text-slate-600 dark:text-slate-400">R$ {(item.unitPrice || 0).toFixed(2)}</td>
-                                                                <td className="py-2 text-right font-semibold text-slate-800 dark:text-white">R$ {((item.unitPrice || 0) * (item.qty || 1)).toFixed(2)}</td>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-sm min-w-[500px]">
+                                                        <thead className="border-b border-slate-200 dark:border-slate-700">
+                                                            <tr className="text-slate-500">
+                                                                <th className="py-2 text-left">Item</th>
+                                                                <th className="py-2 text-center">Tipo</th>
+                                                                <th className="py-2 text-center">Qtd</th>
+                                                                <th className="py-2 text-right">Unitário</th>
+                                                                <th className="py-2 text-right">Total</th>
                                                             </tr>
-                                                        ))}
-                                                    </tbody>
-                                                    <tfoot className="border-t-2 border-slate-200 dark:border-slate-600">
-                                                        {partsItems.length > 0 && (
-                                                            <tr className="text-slate-600 dark:text-slate-400">
-                                                                <td colSpan={4} className="py-2 text-right text-sm">Subtotal Peças:</td>
-                                                                <td className="py-2 text-right font-medium">R$ {partsTotal.toFixed(2)}</td>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                                            {parsedItems.map((item: any, idx: number) => (
+                                                                <tr key={idx}>
+                                                                    <td className="py-2 text-slate-700 dark:text-slate-300 font-medium">{item.name}</td>
+                                                                    <td className="py-2 text-center">
+                                                                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${item.type === 'service' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                                                                            {item.type === 'service' ? 'Serviço' : 'Peça'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="py-2 text-center text-slate-600 dark:text-slate-400">{item.qty}</td>
+                                                                    <td className="py-2 text-right text-slate-600 dark:text-slate-400">R$ {(item.unitPrice || 0).toFixed(2)}</td>
+                                                                    <td className="py-2 text-right font-semibold text-slate-800 dark:text-white">R$ {((item.unitPrice || 0) * (item.qty || 1)).toFixed(2)}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                        <tfoot className="border-t-2 border-slate-200 dark:border-slate-600">
+                                                            {partsItems.length > 0 && (
+                                                                <tr className="text-slate-600 dark:text-slate-400">
+                                                                    <td colSpan={4} className="py-2 text-right text-sm">Subtotal Peças:</td>
+                                                                    <td className="py-2 text-right font-medium">R$ {partsTotal.toFixed(2)}</td>
+                                                                </tr>
+                                                            )}
+                                                            {serviceItems.length > 0 && (
+                                                                <tr className="text-slate-600 dark:text-slate-400">
+                                                                    <td colSpan={4} className="py-2 text-right text-sm">Subtotal Serviços:</td>
+                                                                    <td className="py-2 text-right font-medium">R$ {servicesTotal.toFixed(2)}</td>
+                                                                </tr>
+                                                            )}
+                                                            <tr className="text-slate-800 dark:text-white font-bold">
+                                                                <td colSpan={4} className="py-2 text-right">TOTAL:</td>
+                                                                <td className="py-2 text-right text-green-600 text-lg">R$ {(partsTotal + servicesTotal).toFixed(2)}</td>
                                                             </tr>
-                                                        )}
-                                                        {serviceItems.length > 0 && (
-                                                            <tr className="text-slate-600 dark:text-slate-400">
-                                                                <td colSpan={4} className="py-2 text-right text-sm">Subtotal Serviços:</td>
-                                                                <td className="py-2 text-right font-medium">R$ {servicesTotal.toFixed(2)}</td>
-                                                            </tr>
-                                                        )}
-                                                        <tr className="text-slate-800 dark:text-white font-bold">
-                                                            <td colSpan={4} className="py-2 text-right">TOTAL:</td>
-                                                            <td className="py-2 text-right text-green-600 text-lg">R$ {(partsTotal + servicesTotal).toFixed(2)}</td>
-                                                        </tr>
-                                                    </tfoot>
-                                                </table>
+                                                        </tfoot>
+                                                    </table>
+                                                </div>
                                             </div>
                                         );
                                     }

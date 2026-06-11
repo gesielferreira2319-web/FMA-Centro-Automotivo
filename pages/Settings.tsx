@@ -497,39 +497,39 @@ export default function Settings() {
                                 <span className="material-icons-round animate-spin text-primary text-3xl">refresh</span>
                             </div>
                         ) : (
-                            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-                                <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+                            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+                                <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400 min-w-[600px]">
                                     <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
                                         <tr>
-                                            <th className="px-6 py-3 font-semibold">Nome</th>
-                                            <th className="px-6 py-3 font-semibold">Email</th>
-                                            <th className="px-6 py-3 font-semibold">Função (Role)</th>
-                                            <th className="px-6 py-3 font-semibold text-right">Ações</th>
+                                            <th className="px-4 sm:px-6 py-3 font-semibold">Nome</th>
+                                            <th className="px-4 sm:px-6 py-3 font-semibold">Email</th>
+                                            <th className="px-4 sm:px-6 py-3 font-semibold">Função (Role)</th>
+                                            <th className="px-4 sm:px-6 py-3 font-semibold text-right">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                                         {users.length === 0 ? (
                                             <tr>
-                                                <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
+                                                <td colSpan={4} className="px-4 sm:px-6 py-8 text-center text-slate-500">
                                                     Nenhum usuário encontrado.
                                                 </td>
                                             </tr>
                                         ) : (
                                             users.map((user) => (
                                                 <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                                                    <td className="px-6 py-4 font-medium text-slate-800 dark:text-white">
+                                                    <td className="px-4 sm:px-6 py-4 font-medium text-slate-800 dark:text-white">
                                                         {user.full_name || 'Sem nome'}
                                                     </td>
-                                                    <td className="px-6 py-4 text-slate-600 dark:text-slate-400">
+                                                    <td className="px-4 sm:px-6 py-4 text-slate-600 dark:text-slate-400">
                                                         {user.email || 'Email não disponível'}
                                                         {user.id === session?.user?.id && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Você</span>}
                                                     </td>
-                                                    <td className="px-6 py-4">
+                                                    <td className="px-4 sm:px-6 py-4">
                                                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${user.role === 'owner' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'}`}>
                                                             {user.role === 'owner' ? 'Proprietário' : 'Funcionário'}
                                                         </span>
                                                     </td>
-                                                    <td className="px-6 py-4 text-right">
+                                                    <td className="px-4 sm:px-6 py-4 text-right">
                                                         {currentUserRole === 'owner' && user.id !== session?.user?.id && (
                                                             <button
                                                                 onClick={() => confirmDeleteUser(user)}
@@ -575,10 +575,10 @@ export default function Settings() {
                                             />
                                         </div>
 
-                                        <div className="flex gap-3 pt-2">
+                                        <div className="flex flex-col sm:flex-row gap-3 pt-2">
                                             <button
                                                 onClick={() => setShowDeleteModal(false)}
-                                                className="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                                                className="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors order-last sm:order-first"
                                             >
                                                 Cancelar
                                             </button>
@@ -608,7 +608,7 @@ export default function Settings() {
                 );
             default:
                 return (
-                    <div className="bg-white dark:bg-slate-800 p-12 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm text-center animate-in fade-in">
+                    <div className="bg-white dark:bg-slate-800 p-6 sm:p-12 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm text-center animate-in fade-in">
                         <span className="material-icons-round text-6xl text-slate-200 dark:text-slate-600 mb-4">construction</span>
                         <h3 className="text-lg font-bold text-slate-800 dark:text-white">Em Desenvolvimento</h3>
                         <p className="text-slate-500">A aba <strong>{activeTab}</strong> estará disponível em breve.</p>
@@ -654,14 +654,14 @@ export default function Settings() {
                 <div className="md:col-span-3 space-y-6">
                     {renderContent()}
 
-                    <div className="flex justify-end gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                        <button className="px-6 py-3 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                    <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <button className="px-6 py-3 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors order-last sm:order-first">
                             Cancelar
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={saving}
-                            className="px-8 py-3 bg-primary text-white rounded-xl font-bold shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-70 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                            className="px-8 py-3 bg-primary text-white rounded-xl font-bold shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-70 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                         >
                             {saving ? (
                                 <>

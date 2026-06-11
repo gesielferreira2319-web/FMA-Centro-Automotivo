@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useInventory, InventoryItem, calculateProfitMargin } from '../hooks/useInventory';
+import { useInventory, InventoryItem, calculateProfitMargin, uploadImage } from '../hooks/useInventory';
 
 export default function Inventory() {
   const { items, loading, stats, addItem, updateItem, deleteItem } = useInventory(false);
@@ -20,6 +20,8 @@ export default function Inventory() {
     due_date: '',
   });
   const [saving, setSaving] = useState(false);
+  const [partImage, setPartImage] = useState<File | null>(null);
+  const [existingImages, setExistingImages] = useState<string[]>([]);
 
   const filteredItems = items.filter(item => {
     const matchesSearch = !search ||
@@ -44,6 +46,8 @@ export default function Inventory() {
 
       due_date: '',
     });
+    setPartImage(null);
+    setExistingImages([]);
     setShowAddModal(true);
   };
 
@@ -60,6 +64,8 @@ export default function Inventory() {
 
       due_date: item.due_date || '',
     });
+    setPartImage(null);
+    setExistingImages(item.images || []);
     setShowAddModal(true);
   };
 
@@ -67,11 +73,18 @@ export default function Inventory() {
     e.preventDefault();
     setSaving(true);
 
+    let imageUrls = existingImages;
+    if (partImage) {
+      const url = await uploadImage(partImage);
+      if (url) imageUrls = [url]; // For single image, overwrite or use
+    }
+
     let success = false;
+    const finalData = { ...formData, images: imageUrls };
     if (editingItem) {
-      success = await updateItem(editingItem.id, formData);
+      success = await updateItem(editingItem.id, finalData);
     } else {
-      const res = await addItem({ ...formData, is_used: false });
+      const res = await addItem({ ...finalData, is_used: false });
       success = !!res;
     }
 
@@ -224,10 +237,14 @@ export default function Inventory() {
                   <tr key={item.id} className={`transition-colors ${item.status === 'Estoque Baixo' ? 'bg-orange-50/50 dark:bg-orange-900/10 border-l-4 border-l-orange-500' : item.status === 'Esgotado' ? 'bg-red-50/50 dark:bg-red-900/10 border-l-4 border-l-red-500' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded flex items-center justify-center bg-slate-100 dark:bg-slate-700">
-                          <span className={`material-icons-round text-lg ${item.status === 'Estoque Baixo' ? 'text-orange-500' : item.status === 'Esgotado' ? 'text-red-500' : 'text-slate-400'}`}>
-                            {item.category === 'Elétrica' ? 'bolt' : item.category === 'Suspensão' ? 'settings_input_component' : item.category === 'Freios' ? 'radio_button_checked' : 'directions_car'}
-                          </span>
+                        <div className="w-10 h-10 rounded flex items-center justify-center bg-slate-100 dark:bg-slate-700 overflow-hidden shrink-0">
+                          {item.images && item.images.length > 0 ? (
+                            <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className={`material-icons-round text-lg ${item.status === 'Estoque Baixo' ? 'text-orange-500' : item.status === 'Esgotado' ? 'text-red-500' : 'text-slate-400'}`}>
+                              {item.category === 'Elétrica' ? 'bolt' : item.category === 'Suspensão' ? 'settings_input_component' : item.category === 'Freios' ? 'radio_button_checked' : 'directions_car'}
+                            </span>
+                          )}
                         </div>
                         <div>
                           <p className="font-bold text-slate-800 dark:text-slate-200 text-sm">{item.name}</p>
@@ -285,9 +302,9 @@ export default function Inventory() {
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-[zoomIn_0.2s_ease-out]">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-primary text-white">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-[zoomIn_0.2s_ease-out] flex flex-col max-h-[90vh]">
+            <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-primary text-white shrink-0">
               <div className="flex items-center gap-3">
                 <span className="material-icons-round bg-white/20 p-2 rounded-lg">inventory_2</span>
                 <h3 className="text-xl font-display font-bold uppercase tracking-wide">{editingItem ? 'Editar Peça' : 'Adicionar Nova Peça'}</h3>
@@ -296,7 +313,7 @@ export default function Inventory() {
                 <span className="material-icons-round">close</span>
               </button>
             </div>
-            <form className="p-6 max-h-[70vh] overflow-y-auto" onSubmit={handleSubmit}>
+            <form className="p-4 sm:p-6 overflow-y-auto grow flex flex-col" onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-bold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-tight">Nome da Peça *</label>
@@ -419,9 +436,38 @@ export default function Inventory() {
                   />
                 </div>
 
+                {/* Seção da Imagem */}
+                <div className="md:col-span-2 border-t border-slate-200 dark:border-slate-700 pt-4 mt-2">
+                  <p className="text-sm font-bold text-primary dark:text-blue-400 mb-3 flex items-center gap-2">
+                    <span className="material-icons-round text-lg">image</span>
+                    Foto da Peça
+                  </p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setPartImage(e.target.files[0]);
+                      }
+                    }}
+                    className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                  />
+                  {(partImage || existingImages.length > 0) && (
+                    <div className="mt-3 relative w-24 h-24 rounded border overflow-hidden">
+                      <img src={partImage ? URL.createObjectURL(partImage) : existingImages[0]} alt="preview" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => { setPartImage(null); setExistingImages([]); }} className="absolute top-1 right-1 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs shadow">
+                        &times;
+                      </button>
+                    </div>
+                  )}
+                </div>
+
 
               </div>
-              <div className="mt-10 flex gap-4">
+              <div className="mt-10 flex flex-col sm:flex-row gap-4 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}

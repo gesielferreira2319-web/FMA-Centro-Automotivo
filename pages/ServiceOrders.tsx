@@ -77,7 +77,7 @@ export default function ServiceOrders() {
         </div>
         <Link
           to="/service-orders/new"
-          className="flex items-center gap-2 bg-secondary text-white px-6 py-3 rounded-lg font-semibold shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95 w-fit"
+          className="flex items-center justify-center gap-2 bg-secondary text-white px-6 py-3 rounded-lg font-semibold shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95 w-full md:w-fit"
         >
           <span className="material-icons-round">add</span>
           Nova OS
@@ -121,7 +121,7 @@ export default function ServiceOrders() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[800px]">
               <thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 text-sm uppercase border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th className="px-6 py-4 font-semibold">OS / Data</th>
@@ -198,19 +198,19 @@ export default function ServiceOrders() {
 
       {/* Modal de Visualização */}
       {viewingOrder && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0">
               <div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white">Ordem de Serviço #OS-{viewingOrder.order_number}</h3>
-                <p className="text-sm text-slate-500">{formatDate(viewingOrder.created_at)}</p>
+                <h3 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white">Ordem de Serviço #OS-{viewingOrder.order_number}</h3>
+                <p className="text-xs sm:text-sm text-slate-500">{formatDate(viewingOrder.created_at)}</p>
               </div>
-              <button onClick={() => setViewingOrder(null)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setViewingOrder(null)} className="text-slate-400 hover:text-slate-600 p-2">
                 <span className="material-icons-round">close</span>
               </button>
             </div>
 
-            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto grow">
               {/* Cliente */}
               <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl">
                 <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Cliente</h4>
@@ -489,63 +489,65 @@ export default function ServiceOrders() {
               )}
             </div>
 
-            <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
+            <div className="p-4 sm:p-6 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-end gap-3 shrink-0">
               <button
                 onClick={() => setViewingOrder(null)}
-                className="mr-auto px-5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-slate-700"
+                className="w-full sm:w-auto sm:mr-auto px-5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 order-last sm:order-first text-center"
               >
                 Fechar
               </button>
 
               {/* Botão Imprimir */}
               {(viewingOrder as any).payment_method === 'Boleto' ? (
-                <DropdownButton
-                  label="Imprimir"
-                  icon="print"
-                  colorClass="bg-secondary hover:bg-orange-600 text-white"
-                  placement="top"
-                  options={[
-                    { label: 'Imprimir OS', icon: 'description', onClick: () => handlePrintOrder(viewingOrder) },
-                    {
-                      label: 'Imprimir Boleto',
-                      icon: 'qr_code',
-                      onClick: () => {
-                        const entry = (viewingOrder as any).entry_amount || 0;
-                        const total = viewingOrder.value || 0;
-                        const remaining = total - entry;
-                        const count = (viewingOrder as any).installment_count || 1;
-                        const amount = remaining / count;
+                <div className="w-full sm:w-auto">
+                  <DropdownButton
+                    label="Imprimir"
+                    icon="print"
+                    colorClass="bg-secondary hover:bg-orange-600 text-white w-full justify-center"
+                    placement="top"
+                    options={[
+                      { label: 'Imprimir OS', icon: 'description', onClick: () => handlePrintOrder(viewingOrder) },
+                      {
+                        label: 'Imprimir Boleto',
+                        icon: 'qr_code',
+                        onClick: () => {
+                          const entry = (viewingOrder as any).entry_amount || 0;
+                          const total = viewingOrder.value || 0;
+                          const remaining = total - entry;
+                          const count = (viewingOrder as any).installment_count || 1;
+                          const amount = remaining / count;
 
-                        const boletos = Array.from({ length: count }).map((_, i) => {
-                          const dueDate = new Date((viewingOrder as any).payment_due_date || viewingOrder.created_at);
-                          dueDate.setMonth(dueDate.getMonth() + i);
+                          const boletos = Array.from({ length: count }).map((_, i) => {
+                            const dueDate = new Date((viewingOrder as any).payment_due_date || viewingOrder.created_at);
+                            dueDate.setMonth(dueDate.getMonth() + i);
 
-                          return {
-                            company_name: settings.company_name,
-                            cnpj: settings.cnpj,
-                            address: settings.address,
-                            pix_key: settings.pix_key || 'Chave não configurada',
-                            pix_key_type: settings.pix_key_type || 'CPF',
-                            amount: amount,
-                            due_date: dueDate.toISOString(),
-                            client_name: viewingOrder.client_name || 'Cliente',
-                            client_doc: 'Não informado',
-                            description: `Pagamento OS #${viewingOrder.order_number} - Parcela ${i + 1}/${count}`,
-                            created_at: viewingOrder.created_at,
-                            pix_qrcode: settings.pix_qrcode,
-                            id: viewingOrder.id
-                          };
-                        });
+                            return {
+                              company_name: settings.company_name,
+                              cnpj: settings.cnpj,
+                              address: settings.address,
+                              pix_key: settings.pix_key || 'Chave não configurada',
+                              pix_key_type: settings.pix_key_type || 'CPF',
+                              amount: amount,
+                              due_date: dueDate.toISOString(),
+                              client_name: viewingOrder.client_name || 'Cliente',
+                              client_doc: 'Não informado',
+                              description: `Pagamento OS #${viewingOrder.order_number} - Parcela ${i + 1}/${count}`,
+                              created_at: viewingOrder.created_at,
+                              pix_qrcode: settings.pix_qrcode,
+                              id: viewingOrder.id
+                            };
+                          });
 
-                        printBoletos(boletos);
+                          printBoletos(boletos);
+                        }
                       }
-                    }
-                  ]}
-                />
+                    ]}
+                  />
+                </div>
               ) : (
                 <button
                   onClick={() => handlePrintOrder(viewingOrder)}
-                  className="px-5 py-2.5 bg-secondary text-white rounded-lg font-bold hover:bg-orange-600 transition-all flex items-center gap-2"
+                  className="w-full sm:w-auto justify-center px-5 py-2.5 bg-secondary text-white rounded-lg font-bold hover:bg-orange-600 transition-all flex items-center gap-2"
                   title="Imprimir"
                 >
                   <span className="material-icons-round text-lg">print</span>
@@ -555,53 +557,55 @@ export default function ServiceOrders() {
 
               {/* Botão Baixar */}
               {(viewingOrder as any).payment_method === 'Boleto' ? (
-                <DropdownButton
-                  label="Baixar"
-                  icon="download"
-                  colorClass="bg-slate-600 hover:bg-slate-700 text-white"
-                  placement="top"
-                  options={[
-                    { label: 'Baixar PDF da OS', icon: 'description', onClick: () => handleDownloadOrder(viewingOrder) },
-                    {
-                      label: 'Baixar Boleto PDF',
-                      icon: 'qr_code',
-                      onClick: () => {
-                        const entry = (viewingOrder as any).entry_amount || 0;
-                        const total = viewingOrder.value || 0;
-                        const remaining = total - entry;
-                        const count = (viewingOrder as any).installment_count || 1;
-                        const amount = remaining / count;
+                <div className="w-full sm:w-auto">
+                  <DropdownButton
+                    label="Baixar"
+                    icon="download"
+                    colorClass="bg-slate-600 hover:bg-slate-700 text-white w-full justify-center"
+                    placement="top"
+                    options={[
+                      { label: 'Baixar PDF da OS', icon: 'description', onClick: () => handleDownloadOrder(viewingOrder) },
+                      {
+                        label: 'Baixar Boleto PDF',
+                        icon: 'qr_code',
+                        onClick: () => {
+                          const entry = (viewingOrder as any).entry_amount || 0;
+                          const total = viewingOrder.value || 0;
+                          const remaining = total - entry;
+                          const count = (viewingOrder as any).installment_count || 1;
+                          const amount = remaining / count;
 
-                        const boletos = Array.from({ length: count }).map((_, i) => {
-                          const dueDate = new Date((viewingOrder as any).payment_due_date || viewingOrder.created_at);
-                          dueDate.setMonth(dueDate.getMonth() + i);
+                          const boletos = Array.from({ length: count }).map((_, i) => {
+                            const dueDate = new Date((viewingOrder as any).payment_due_date || viewingOrder.created_at);
+                            dueDate.setMonth(dueDate.getMonth() + i);
 
-                          return {
-                            company_name: settings.company_name,
-                            cnpj: settings.cnpj,
-                            address: settings.address,
-                            pix_key: settings.pix_key || 'Chave não configurada',
-                            pix_key_type: settings.pix_key_type || 'CPF',
-                            amount: amount,
-                            due_date: dueDate.toISOString(),
-                            client_name: viewingOrder.client_name || 'Cliente',
-                            client_doc: 'Não informado',
-                            description: `Pagamento OS #${viewingOrder.order_number} - Parcela ${i + 1}/${count}`,
-                            created_at: viewingOrder.created_at,
-                            pix_qrcode: settings.pix_qrcode,
-                            id: viewingOrder.id
-                          };
-                        });
+                            return {
+                              company_name: settings.company_name,
+                              cnpj: settings.cnpj,
+                              address: settings.address,
+                              pix_key: settings.pix_key || 'Chave não configurada',
+                              pix_key_type: settings.pix_key_type || 'CPF',
+                              amount: amount,
+                              due_date: dueDate.toISOString(),
+                              client_name: viewingOrder.client_name || 'Cliente',
+                              client_doc: 'Não informado',
+                              description: `Pagamento OS #${viewingOrder.order_number} - Parcela ${i + 1}/${count}`,
+                              created_at: viewingOrder.created_at,
+                              pix_qrcode: settings.pix_qrcode,
+                              id: viewingOrder.id
+                            };
+                          });
 
-                        downloadBoletos(boletos);
+                          downloadBoletos(boletos);
+                        }
                       }
-                    }
-                  ]}
-                />
+                    ]}
+                  />
+                </div>
               ) : (
                 <button
                   onClick={() => handleDownloadOrder(viewingOrder)}
-                  className="px-5 py-2.5 bg-slate-600 text-white rounded-lg font-bold hover:bg-slate-700 transition-all flex items-center gap-2"
+                  className="w-full sm:w-auto justify-center px-5 py-2.5 bg-slate-600 text-white rounded-lg font-bold hover:bg-slate-700 transition-all flex items-center gap-2"
                   title="Baixar PDF"
                 >
                   <span className="material-icons-round text-lg">download</span>
@@ -611,39 +615,41 @@ export default function ServiceOrders() {
 
               {/* Botão WhatsApp */}
               {(viewingOrder as any).payment_method === 'Boleto' ? (
-                <DropdownButton
-                  label="WhatsApp"
-                  icon="send"
-                  colorClass="bg-green-500 hover:bg-green-600 text-white"
-                  placement="top"
-                  options={[
-                    { label: 'Enviar Resumo da OS', icon: 'description', onClick: () => handleWhatsAppOrder(viewingOrder) },
-                    {
-                      label: 'Enviar Boleto Pix',
-                      icon: 'qr_code',
-                      onClick: () => sendBoletoToWhatsApp({
-                        company_name: settings.company_name,
-                        cnpj: settings.cnpj,
-                        address: settings.address,
-                        pix_key: settings.pix_key || 'Chave não configurada',
-                        pix_key_type: settings.pix_key_type || 'CPF',
-                        amount: viewingOrder.value || 0,
-                        due_date: (viewingOrder as any).payment_due_date,
-                        client_name: viewingOrder.client_name || 'Cliente',
-                        client_doc: 'Não informado',
-                        description: `Pagamento OS #${viewingOrder.order_number}`,
-                        created_at: viewingOrder.created_at,
-                        id: viewingOrder.id,
-                        pix_qrcode: settings.pix_qrcode,
-                        client_phone: viewingOrder.client_phone
-                      }, viewingOrder.client_phone)
-                    }
-                  ]}
-                />
+                <div className="w-full sm:w-auto">
+                  <DropdownButton
+                    label="WhatsApp"
+                    icon="send"
+                    colorClass="bg-green-500 hover:bg-green-600 text-white w-full justify-center"
+                    placement="top"
+                    options={[
+                      { label: 'Enviar Resumo da OS', icon: 'description', onClick: () => handleWhatsAppOrder(viewingOrder) },
+                      {
+                        label: 'Enviar Boleto Pix',
+                        icon: 'qr_code',
+                        onClick: () => sendBoletoToWhatsApp({
+                          company_name: settings.company_name,
+                          cnpj: settings.cnpj,
+                          address: settings.address,
+                          pix_key: settings.pix_key || 'Chave não configurada',
+                          pix_key_type: settings.pix_key_type || 'CPF',
+                          amount: viewingOrder.value || 0,
+                          due_date: (viewingOrder as any).payment_due_date,
+                          client_name: viewingOrder.client_name || 'Cliente',
+                          client_doc: 'Não informado',
+                          description: `Pagamento OS #${viewingOrder.order_number}`,
+                          created_at: viewingOrder.created_at,
+                          id: viewingOrder.id,
+                          pix_qrcode: settings.pix_qrcode,
+                          client_phone: viewingOrder.client_phone
+                        }, viewingOrder.client_phone)
+                      }
+                    ]}
+                  />
+                </div>
               ) : (
                 <button
                   onClick={() => handleWhatsAppOrder(viewingOrder)}
-                  className="px-5 py-2.5 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 transition-all flex items-center gap-2"
+                  className="w-full sm:w-auto justify-center px-5 py-2.5 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 transition-all flex items-center gap-2"
                   title="Enviar via WhatsApp"
                 >
                   <span className="material-icons-round text-lg">send</span>

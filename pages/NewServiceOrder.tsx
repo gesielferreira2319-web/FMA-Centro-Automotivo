@@ -363,7 +363,7 @@ export default function NewServiceOrder() {
             {isEditing ? 'Edição de ordem de serviço existente.' : 'Abertura de nova ordem técnica e diagnóstica.'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => navigate('/service-orders')}
@@ -849,9 +849,9 @@ export default function NewServiceOrder() {
       {/* Modal Adicionar Item */}
       {
         showAddItemModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
-              <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+              <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-700 shrink-0">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-bold text-slate-800 dark:text-white">Adicionar Item</h3>
                   <button onClick={() => setShowAddItemModal(false)} className="text-slate-400 hover:text-slate-600">
@@ -860,7 +860,7 @@ export default function NewServiceOrder() {
                 </div>
               </div>
 
-              <div className="p-6">
+              <div className="p-4 sm:p-6 overflow-y-auto grow">
                 {/* Tabs */}
                 <div className="flex gap-2 mb-6">
                   <button
@@ -893,7 +893,7 @@ export default function NewServiceOrder() {
                       placeholder={newItem.type === 'part' ? 'Ex: Pastilha de Freio' : 'Ex: Troca de Óleo'}
                     />
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-500 uppercase">Código</label>
                       <input

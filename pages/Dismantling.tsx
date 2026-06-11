@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDismantling, DismantlingVehicle } from '../hooks/useDismantling';
 import { useAuth } from '../contexts/AuthContext';
-import { useInventory } from '../hooks/useInventory';
+import { useInventory, uploadImage } from '../hooks/useInventory';
 import { useSales } from '../hooks/useSales';
 import { UsedPartsSales } from '../components/UsedPartsSales';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -92,6 +92,8 @@ export default function Dismantling() {
         category: 'Motor',
         sku: ''
     });
+    const [partImages, setPartImages] = useState<File[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
 
     // Fetch Sales & Calc Metrics
     useEffect(() => {
@@ -231,7 +233,15 @@ export default function Dismantling() {
     const handleAddPart = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!addingPartToVehicle || !newPart.name) return;
+        
+        setIsUploading(true);
         try {
+            const imageUrls: string[] = [];
+            for (const file of partImages) {
+                const url = await uploadImage(file);
+                if (url) imageUrls.push(url);
+            }
+
             await addItem({
                 name: newPart.name,
                 category: newPart.category,
@@ -239,13 +249,17 @@ export default function Dismantling() {
                 unit_price: Number(newPart.unit_price),
                 is_used: true,
                 origin_vehicle: `${addingPartToVehicle.model} ${addingPartToVehicle.plate || ''}`.trim(),
-                sku: newPart.sku
+                sku: newPart.sku,
+                images: imageUrls
             });
             setAddingPartToVehicle(null);
             setNewPart({ name: '', quantity: 1, unit_price: '', category: 'Motor', sku: '' });
+            setPartImages([]);
             alert('Peça adicionada ao estoque com sucesso!');
         } catch (error) {
             alert('Erro ao adicionar peça');
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -516,7 +530,7 @@ export default function Dismantling() {
                     )}
 
                     {activeTab === 'veiculos' && (
-                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-x-auto animate-in fade-in">
                             <table className="w-full text-left">
                                 <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500 font-semibold text-sm">
                                     <tr>
@@ -745,10 +759,12 @@ export default function Dismantling() {
             {/* Modal: New Vehicle */}
             {
                 showNewVehicleModal && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg p-6 animate-in zoom-in-95">
-                            <h3 className="text-xl font-bold mb-4 dark:text-white">Registrar Compra de Veículo</h3>
-                            <form onSubmit={handleSubmitVehicle} className="space-y-4">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] animate-in zoom-in-95">
+                            <div className="p-4 sm:p-6 border-b border-slate-100 shrink-0">
+                                <h3 className="text-xl font-bold dark:text-white">Registrar Compra de Veículo</h3>
+                            </div>
+                            <form onSubmit={handleSubmitVehicle} className="p-4 sm:p-6 space-y-4 overflow-y-auto grow">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Modelo do Veículo</label>
                                     <input required type="text" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 dark:text-white outline-none focus:ring-2 focus:ring-primary"
@@ -803,10 +819,12 @@ export default function Dismantling() {
             {/* Modal: Adding Part, Viewing Part - Simplified for brevity in this update, keeping functionality */}
             {
                 addingPartToVehicle && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95">
-                            <h3 className="text-xl font-bold dark:text-white mb-4">Adicionar Peça: {addingPartToVehicle.model}</h3>
-                            <form onSubmit={handleAddPart} className="space-y-4">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh] animate-in zoom-in-95">
+                            <div className="p-4 sm:p-6 border-b border-slate-100 shrink-0">
+                                <h3 className="text-xl font-bold dark:text-white">Adicionar Peça: {addingPartToVehicle.model}</h3>
+                            </div>
+                            <form onSubmit={handleAddPart} className="p-4 sm:p-6 space-y-4 overflow-y-auto grow">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome da Peça</label>
                                     <input required type="text" className="w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-2.5 dark:text-white"
@@ -826,9 +844,35 @@ export default function Dismantling() {
                                     <input required type="number" step="0.01" className="w-full bg-slate-50 dark:bg-slate-900 border rounded-lg p-2.5 dark:text-white"
                                         value={newPart.unit_price} onChange={e => setNewPart({ ...newPart, unit_price: e.target.value })} placeholder="Preço" />
                                 </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fotos (Máx 5)</label>
+                                    <input type="file" multiple accept="image/*" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                        onChange={(e) => {
+                                            const files = Array.from(e.target.files || []);
+                                            if (files.length + partImages.length > 5) {
+                                                alert('Máximo de 5 imagens permitido.');
+                                                return;
+                                            }
+                                            setPartImages(prev => [...prev, ...files].slice(0, 5));
+                                        }} />
+                                    {partImages.length > 0 && (
+                                        <div className="flex gap-2 mt-2 flex-wrap">
+                                            {partImages.map((file, idx) => (
+                                                <div key={idx} className="relative w-12 h-12 rounded border overflow-hidden">
+                                                    <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
+                                                    <button type="button" onClick={() => setPartImages(prev => prev.filter((_, i) => i !== idx))} className="absolute top-0 right-0 bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center text-[10px]">
+                                                        &times;
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="flex justify-end gap-2 mt-4">
-                                    <button type="button" onClick={() => setAddingPartToVehicle(null)} className="px-4 py-2 text-slate-500">Cancelar</button>
-                                    <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg font-bold">Salvar</button>
+                                    <button type="button" onClick={() => { setAddingPartToVehicle(null); setPartImages([]); }} className="px-4 py-2 text-slate-500">Cancelar</button>
+                                    <button type="submit" disabled={isUploading} className="px-4 py-2 bg-primary text-white rounded-lg font-bold flex items-center gap-2">
+                                        {isUploading ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> Salvando...</> : 'Salvar'}
+                                    </button>
                                 </div>
                             </form>
                         </div>
@@ -838,16 +882,16 @@ export default function Dismantling() {
 
             {
                 viewingVehicle && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl p-6 h-[80vh] flex flex-col">
-                            <div className="flex flex-col mb-4">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-2xl h-[90vh] flex flex-col animate-in zoom-in-95">
+                            <div className="flex flex-col p-4 sm:p-6 border-b border-slate-100 shrink-0">
                                 <div className="flex justify-between items-center">
                                     <h3 className="text-xl font-bold dark:text-white">{viewingVehicle.model} - Peças</h3>
                                     <p className="font-bold text-green-600">Total Geral: R$ {vehicleTotalPartsValue.toFixed(2)}</p>
                                 </div>
 
                             </div>
-                            <div className="flex-1 overflow-y-auto">
+                            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                                 <table className="w-full text-left text-sm">
                                     <thead className="bg-slate-50 dark:bg-slate-900 text-xs uppercase text-slate-500 sticky top-0">
                                         <tr><th className="p-3">Peça</th><th className="p-3 text-right">Preço</th><th className="p-3 text-center">Qtd</th><th className="p-3 text-center">Ações</th></tr>
@@ -857,7 +901,20 @@ export default function Dismantling() {
                                             <tr key={p.id} className="border-b border-slate-100 dark:border-slate-700">
                                                 <td className="p-3 dark:text-slate-200">
                                                     {p.name}
-
+                                                    {p.images && p.images.length > 0 && (
+                                                        <div className="flex gap-2 mt-2 flex-wrap">
+                                                            {p.images.map((url, idx) => (
+                                                                <div key={idx} className="relative group w-12 h-12 rounded border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
+                                                                    <a href={url} target="_blank" rel="noreferrer" title="Ver Imagem Original">
+                                                                        <img src={url} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover group-hover:opacity-50 transition-opacity" />
+                                                                    </a>
+                                                                    <a href={`${url}?download=foto_peca_${idx + 1}.jpg`} className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 text-white" title="Baixar Imagem">
+                                                                        <span className="material-icons-round text-lg drop-shadow-md">file_download</span>
+                                                                    </a>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="p-3 text-right font-bold">R$ {p.unit_price.toFixed(2)}</td>
                                                 <td className="p-3 text-center">{p.quantity}</td>
@@ -871,7 +928,7 @@ export default function Dismantling() {
                                     </tbody>
                                 </table>
                             </div>
-                            <div className="flex justify-end pt-4 gap-2">
+                            <div className="flex justify-end p-4 sm:p-6 border-t border-slate-100 shrink-0 gap-2">
                                 <button onClick={() => setViewingVehicle(null)} className="px-4 py-2 border rounded-lg">Fechar</button>
                             </div>
                         </div>

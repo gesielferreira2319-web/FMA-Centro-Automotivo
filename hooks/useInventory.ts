@@ -17,12 +17,40 @@ export interface InventoryItem {
     origin_vehicle?: string;
     part_condition?: string;
     created_at?: string;
+    images?: string[];
 }
 
 // Função auxiliar para calcular margem de lucro
 export const calculateProfitMargin = (unitPrice: number, costPrice: number): number => {
     if (!costPrice || costPrice === 0) return 0;
     return ((unitPrice - costPrice) / costPrice) * 100;
+};
+
+// Função para upload de imagem
+export const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error } = await supabase.storage
+            .from('inventory_images')
+            .upload(filePath, file);
+
+        if (error) {
+            console.error('Erro no upload da imagem:', error);
+            return null;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('inventory_images')
+            .getPublicUrl(filePath);
+
+        return publicUrl;
+    } catch (err) {
+        console.error('Erro inesperado no upload:', err);
+        return null;
+    }
 };
 
 export function useInventory(isUsed: boolean = false) {
@@ -77,6 +105,7 @@ export function useInventory(isUsed: boolean = false) {
                 is_used: itemData.is_used || false,
                 origin_vehicle: itemData.origin_vehicle || null,
                 part_condition: itemData.part_condition || null,
+                images: itemData.images || [],
             })
             .select()
             .single();
@@ -103,6 +132,7 @@ export function useInventory(isUsed: boolean = false) {
                 sku: itemData.sku || null,
                 supplier_name: itemData.supplier_name || null,
                 due_date: itemData.due_date || null,
+                images: itemData.images !== undefined ? itemData.images : undefined,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', id);
