@@ -1,4 +1,5 @@
 {
+    "name": "fma-centro-automotivo",
     "rewrites": [
         {
             "source": "/(.*)",
