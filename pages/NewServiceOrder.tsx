@@ -708,6 +708,15 @@ export default function NewServiceOrder() {
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot className="border-t-2 border-slate-100 dark:border-slate-700">
+                      <tr>
+                        <td colSpan={3} className="py-4 text-right font-bold text-slate-500 uppercase text-xs">Subtotal (Peças e Mão de Obra)</td>
+                        <td className="py-4 text-right font-bold text-lg text-slate-800 dark:text-white">
+                          {items.reduce((sum, item) => sum + (item.qty * item.unitPrice), 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               )}
