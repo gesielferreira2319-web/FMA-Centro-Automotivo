@@ -18,7 +18,9 @@ export interface ServiceOrder {
     notes?: string;
     delivery_date?: string;
     items?: any[] | string; // JSON array ou string
-    vehicle_photo?: string; // URL da foto do veículo
+    vehicle_photo?: string; // URL da foto do veículo principal
+    additional_vehicle_photos?: string[]; // URLs das outras 4 fotos do veículo
+    part_photos?: string[]; // URLs das fotos de peças trocadas
     created_at: string;
     payment_method?: string;
     payment_status?: 'pendente' | 'pago';
@@ -91,6 +93,8 @@ export function useServiceOrders() {
         if (orderData.delivery_date) baseFields.delivery_date = orderData.delivery_date;
         if (orderData.items) baseFields.items = orderData.items;
         if (orderData.vehicle_photo) baseFields.vehicle_photo = orderData.vehicle_photo;
+        if (orderData.additional_vehicle_photos) baseFields.additional_vehicle_photos = orderData.additional_vehicle_photos;
+        if (orderData.part_photos) baseFields.part_photos = orderData.part_photos;
         if (orderData.payment_due_date) baseFields.payment_due_date = orderData.payment_due_date;
         if (orderData.payment_date) baseFields.payment_date = orderData.payment_date;
 

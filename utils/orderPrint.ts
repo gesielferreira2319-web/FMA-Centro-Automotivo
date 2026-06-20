@@ -21,6 +21,8 @@ export interface OrderData {
     delivery_date?: string;
     notes?: string;
     vehicle_photo?: string;
+    additional_vehicle_photos?: string[];
+    part_photos?: string[];
     payment_method?: string;
     payment_due_date?: string;
 }
@@ -357,6 +359,39 @@ export const generateOrderHTML = (order: OrderData): string => {
     const complaint = order.complaint || order.service?.split('\n\nDiagnóstico:')[0] || '-';
     const diagnosis = order.diagnosis || order.service?.split('Diagnóstico: ')[1] || '-';
 
+    // Renderizar fotos do veículo e peças
+    let attachmentsHtml = '';
+    const allPhotos: { title: string, url: string }[] = [];
+    if (order.vehicle_photo) {
+        allPhotos.push({ title: 'Veículo (Principal)', url: order.vehicle_photo });
+    }
+    if (order.additional_vehicle_photos && order.additional_vehicle_photos.length > 0) {
+        order.additional_vehicle_photos.forEach((url, i) => {
+            allPhotos.push({ title: `Veículo (${i + 1})`, url });
+        });
+    }
+    if (order.part_photos && order.part_photos.length > 0) {
+        order.part_photos.forEach((url, i) => {
+            allPhotos.push({ title: `Peça (${i + 1})`, url });
+        });
+    }
+
+    if (allPhotos.length > 0) {
+        attachmentsHtml = `
+            <div class="section" style="page-break-inside: avoid;">
+                <div class="section-title">FOTOS EM ANEXO</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    ${allPhotos.map(photo => `
+                        <div style="width: 48%; margin-bottom: 10px; text-align: center;">
+                            <img src="${photo.url}" style="width: 100%; height: 200px; object-fit: cover; border: 1px solid #ccc; border-radius: 4px;" />
+                            <div style="font-size: 10px; color: #666; margin-top: 5px;">${photo.title}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     return `
         <!DOCTYPE html>
         <html>
@@ -552,6 +587,8 @@ export const generateOrderHTML = (order: OrderData): string => {
             </div>
             ` : ''}
             
+            ${attachmentsHtml}
+
             <div class="signature-area">
                 <div class="signature-box">
                     <div class="signature-line">Assinatura do Cliente</div>
@@ -667,6 +704,16 @@ const generateWhatsAppMessage = (order: OrderData): string => {
     const complaint = order.complaint || order.service?.split('\n\nDiagnóstico:')[0] || '';
     const diagnosis = order.diagnosis || order.service?.split('Diagnóstico: ')[1] || '';
 
+    let photosList = '';
+    const allPhotos: { title: string, url: string }[] = [];
+    if (order.vehicle_photo) allPhotos.push({ title: 'Veículo (Principal)', url: order.vehicle_photo });
+    if (order.additional_vehicle_photos) order.additional_vehicle_photos.forEach((url, i) => allPhotos.push({ title: `Veículo ${i+1}`, url }));
+    if (order.part_photos) order.part_photos.forEach((url, i) => allPhotos.push({ title: `Peça ${i+1}`, url }));
+
+    if (allPhotos.length > 0) {
+        photosList = '\n\n📸 *FOTOS EM ANEXO:*\n' + allPhotos.map(p => `• ${p.title}: ${p.url}`).join('\n');
+    }
+
     return `🔧 *FMA CENTRO AUTOMOTIVO*
 ━━━━━━━━━━━━━━━━━━━━━
 
@@ -681,6 +728,7 @@ ${order.km ? `• KM: ${order.km}` : ''}
 ${complaint ? `\n📝 *Reclamação:*\n${complaint}` : ''}
 ${diagnosis ? `\n🔍 *Diagnóstico:*\n${diagnosis}` : ''}
 ${itemsList}
+${photosList}
 
 💰 *VALOR TOTAL: R$ ${total.toFixed(2)}*
 ${(order as any).payment_method ? `💳 Pagamento: ${(order as any).payment_method}` : ''}
