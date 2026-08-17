@@ -21,6 +21,7 @@ export default function Inventory() {
   });
   const [saving, setSaving] = useState(false);
   const [partImage, setPartImage] = useState<File | null>(null);
+  const [partImagePreview, setPartImagePreview] = useState<string | null>(null);
   const [existingImages, setExistingImages] = useState<string[]>([]);
 
   const filteredItems = items.filter(item => {
@@ -47,6 +48,8 @@ export default function Inventory() {
       due_date: '',
     });
     setPartImage(null);
+    if (partImagePreview) URL.revokeObjectURL(partImagePreview);
+    setPartImagePreview(null);
     setExistingImages([]);
     setShowAddModal(true);
   };
@@ -65,6 +68,8 @@ export default function Inventory() {
       due_date: item.due_date || '',
     });
     setPartImage(null);
+    if (partImagePreview) URL.revokeObjectURL(partImagePreview);
+    setPartImagePreview(null);
     setExistingImages(item.images || []);
     setShowAddModal(true);
   };
@@ -450,15 +455,23 @@ export default function Inventory() {
                     accept="image/*"
                     onChange={(e) => {
                       if (e.target.files && e.target.files[0]) {
-                        setPartImage(e.target.files[0]);
+                        const file = e.target.files[0];
+                        setPartImage(file);
+                        if (partImagePreview) URL.revokeObjectURL(partImagePreview);
+                        setPartImagePreview(URL.createObjectURL(file));
                       }
                     }}
                     className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                   />
                   {(partImage || existingImages.length > 0) && (
                     <div className="mt-3 relative w-24 h-24 rounded border overflow-hidden">
-                      <img src={partImage ? URL.createObjectURL(partImage) : existingImages[0]} alt="preview" className="w-full h-full object-cover" />
-                      <button type="button" onClick={() => { setPartImage(null); setExistingImages([]); }} className="absolute top-1 right-1 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs shadow">
+                      <img src={partImagePreview || existingImages[0]} alt="preview" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => { 
+                        setPartImage(null); 
+                        if (partImagePreview) URL.revokeObjectURL(partImagePreview);
+                        setPartImagePreview(null);
+                        setExistingImages([]); 
+                      }} className="absolute top-1 right-1 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs shadow">
                         &times;
                       </button>
                     </div>

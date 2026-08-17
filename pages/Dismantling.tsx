@@ -92,7 +92,7 @@ export default function Dismantling() {
         category: 'Motor',
         sku: ''
     });
-    const [partImages, setPartImages] = useState<File[]>([]);
+    const [partImages, setPartImages] = useState<{file: File, previewUrl: string}[]>([]);
     const [isUploading, setIsUploading] = useState(false);
 
     // Fetch Sales & Calc Metrics
@@ -237,8 +237,8 @@ export default function Dismantling() {
         setIsUploading(true);
         try {
             const imageUrls: string[] = [];
-            for (const file of partImages) {
-                const url = await uploadImage(file);
+            for (const item of partImages) {
+                const url = await uploadImage(item.file);
                 if (url) imageUrls.push(url);
             }
 
@@ -254,6 +254,7 @@ export default function Dismantling() {
             });
             setAddingPartToVehicle(null);
             setNewPart({ name: '', quantity: 1, unit_price: '', category: 'Motor', sku: '' });
+            partImages.forEach(item => URL.revokeObjectURL(item.previewUrl));
             setPartImages([]);
             alert('Peça adicionada ao estoque com sucesso!');
         } catch (error) {
@@ -853,14 +854,18 @@ export default function Dismantling() {
                                                 alert('Máximo de 5 imagens permitido.');
                                                 return;
                                             }
-                                            setPartImages(prev => [...prev, ...files].slice(0, 5));
+                                            const newItems = files.map(f => ({ file: f, previewUrl: URL.createObjectURL(f) }));
+                                            setPartImages(prev => [...prev, ...newItems].slice(0, 5));
                                         }} />
                                     {partImages.length > 0 && (
                                         <div className="flex gap-2 mt-2 flex-wrap">
-                                            {partImages.map((file, idx) => (
+                                            {partImages.map((item, idx) => (
                                                 <div key={idx} className="relative w-12 h-12 rounded border overflow-hidden">
-                                                    <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
-                                                    <button type="button" onClick={() => setPartImages(prev => prev.filter((_, i) => i !== idx))} className="absolute top-0 right-0 bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center text-[10px]">
+                                                    <img src={item.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                                                    <button type="button" onClick={() => {
+                                                        URL.revokeObjectURL(item.previewUrl);
+                                                        setPartImages(prev => prev.filter((_, i) => i !== idx));
+                                                    }} className="absolute top-0 right-0 bg-red-500 text-white w-4 h-4 rounded-full flex items-center justify-center text-[10px]">
                                                         &times;
                                                     </button>
                                                 </div>
@@ -869,7 +874,11 @@ export default function Dismantling() {
                                     )}
                                 </div>
                                 <div className="flex justify-end gap-2 mt-4">
-                                    <button type="button" onClick={() => { setAddingPartToVehicle(null); setPartImages([]); }} className="px-4 py-2 text-slate-500">Cancelar</button>
+                                    <button type="button" onClick={() => { 
+                                        setAddingPartToVehicle(null); 
+                                        partImages.forEach(item => URL.revokeObjectURL(item.previewUrl));
+                                        setPartImages([]); 
+                                    }} className="px-4 py-2 text-slate-500">Cancelar</button>
                                     <button type="submit" disabled={isUploading} className="px-4 py-2 bg-primary text-white rounded-lg font-bold flex items-center gap-2">
                                         {isUploading ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> Salvando...</> : 'Salvar'}
                                     </button>

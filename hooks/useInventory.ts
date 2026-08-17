@@ -26,16 +26,73 @@ export const calculateProfitMargin = (unitPrice: number, costPrice: number): num
     return ((unitPrice - costPrice) / costPrice) * 100;
 };
 
+// Função auxiliar para compressão de imagem no cliente
+export const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+        if (!file.type.startsWith('image/')) return resolve(file);
+        
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1200;
+                const MAX_HEIGHT = 1200;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height = Math.round((height *= MAX_WIDTH / width));
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width = Math.round((width *= MAX_HEIGHT / height));
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return resolve(file);
+                
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    if (!blob) return resolve(file);
+                    const newFileName = file.name.includes('.') 
+                        ? file.name.replace(/\.[^/.]+$/, "") + ".jpg" 
+                        : file.name + ".jpg";
+                    const newFile = new File([blob], newFileName, {
+                        type: 'image/jpeg',
+                        lastModified: Date.now(),
+                    });
+                    resolve(newFile);
+                }, 'image/jpeg', 0.85);
+            };
+            img.onerror = () => resolve(file);
+        };
+        reader.onerror = () => resolve(file);
+    });
+};
+
 // Função para upload de imagem
 export const uploadImage = async (file: File): Promise<string | null> => {
     try {
-        const fileExt = file.name.split('.').pop();
+        const processedFile = await compressImage(file);
+        const fileExt = processedFile.name.split('.').pop() || 'jpg';
         const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
         const filePath = `${fileName}`;
 
         const { error } = await supabase.storage
             .from('inventory_images')
-            .upload(filePath, file);
+            .upload(filePath, processedFile, {
+                contentType: processedFile.type || 'image/jpeg',
+                upsert: false
+            });
 
         if (error) {
             console.error('Erro no upload da imagem:', error);
