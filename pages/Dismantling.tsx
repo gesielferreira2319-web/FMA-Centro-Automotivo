@@ -532,8 +532,8 @@ export default function Dismantling() {
 
                     {activeTab === 'veiculos' && (
                         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-x-auto animate-in fade-in">
-                            <table className="w-full text-left">
-                                <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500 font-semibold text-sm">
+                            <table className="w-full text-left block md:table">
+                                <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500 font-semibold text-sm hidden md:table-header-group">
                                     <tr>
                                         <th className="p-4">Veículo</th>
                                         <th className="p-4">Detalhes</th>
@@ -541,14 +541,14 @@ export default function Dismantling() {
                                         <th className="p-4 text-right">Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                <tbody className="block md:table-row-group divide-y divide-slate-100 dark:divide-slate-700">
                                     {vehicles.map(v => (
-                                        <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                            <td className="p-4">
+                                        <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 block md:table-row">
+                                            <td className="p-4 block md:table-cell">
                                                 <div className="font-bold text-slate-800 dark:text-white">{v.model}</div>
                                                 {v.plate && <div className="text-xs text-slate-500 font-mono mt-1">{v.plate}</div>}
                                             </td>
-                                            <td className="p-4 text-sm text-slate-600 dark:text-slate-400">
+                                            <td className="px-4 pb-2 md:p-4 text-sm text-slate-600 dark:text-slate-400 block md:table-cell">
                                                 <div className="text-xs text-slate-500 mb-1">{new Date(v.purchase_date).toLocaleDateString('pt-BR')}</div>
                                                 <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${v.status === 'disponivel' ? 'bg-blue-100 text-blue-700' :
                                                     v.status === 'finalizado' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'
@@ -556,7 +556,7 @@ export default function Dismantling() {
                                                     {v.status}
                                                 </span>
                                             </td>
-                                            <td className="p-4">
+                                            <td className="px-4 pb-4 md:p-4 block md:table-cell">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-slate-500 text-xs">Custo:</span>
                                                     <span className="font-medium text-slate-700 dark:text-slate-300">R$ {Number(v.purchase_price).toLocaleString('pt-BR')}</span>
@@ -575,23 +575,25 @@ export default function Dismantling() {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="p-4 flex gap-2 justify-end">
-                                                {/* Delete Vehicle Button */}
-                                                <button title="Excluir Veículo" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" onClick={() => handleDeleteVehicle(v)}>
-                                                    <span className="material-icons-round">delete</span>
-                                                </button>
-
-                                                {v.status !== 'finalizado' && (
-                                                    <button title="Dar Baixa" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded" onClick={() => confirm('Finalizar?') && handleWriteOff(v.id)}>
-                                                        <span className="material-icons-round">archive</span>
+                                            <td className="px-4 pb-4 md:p-4 block md:table-cell border-t border-slate-100 md:border-0">
+                                                <div className="flex gap-2 justify-start md:justify-end mt-2 md:mt-0">
+                                                    {/* Delete Vehicle Button */}
+                                                    <button title="Excluir Veículo" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded bg-slate-50 md:bg-transparent" onClick={() => handleDeleteVehicle(v)}>
+                                                        <span className="material-icons-round">delete</span>
                                                     </button>
-                                                )}
-                                                <button onClick={() => setViewingVehicle(v)} className="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Ver Peças">
-                                                    <span className="material-icons-round">visibility</span>
-                                                </button>
-                                                <button onClick={() => setAddingPartToVehicle(v)} className="p-2 text-green-600 hover:bg-green-50 rounded" title="Add Peça">
-                                                    <span className="material-icons-round">add_circle</span>
-                                                </button>
+
+                                                    {v.status !== 'finalizado' && (
+                                                        <button title="Dar Baixa" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded bg-slate-50 md:bg-transparent" onClick={() => confirm('Finalizar?') && handleWriteOff(v.id)}>
+                                                            <span className="material-icons-round">archive</span>
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => setViewingVehicle(v)} className="p-2 text-blue-600 hover:bg-blue-50 rounded bg-blue-50/50 md:bg-transparent" title="Ver Peças">
+                                                        <span className="material-icons-round">visibility</span>
+                                                    </button>
+                                                    <button onClick={() => setAddingPartToVehicle(v)} className="p-2 text-green-600 hover:bg-green-50 rounded bg-green-50/50 md:bg-transparent" title="Add Peça">
+                                                        <span className="material-icons-round">add_circle</span>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
