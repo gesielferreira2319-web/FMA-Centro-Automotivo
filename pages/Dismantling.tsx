@@ -849,16 +849,38 @@ export default function Dismantling() {
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fotos (Máx 5)</label>
-                                    <input type="file" multiple accept="image/*, image/jpeg, image/png, image/webp" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                                        onChange={(e) => {
-                                            const files = Array.from(e.target.files || []);
-                                            if (files.length + partImages.length > 5) {
-                                                alert('Máximo de 5 imagens permitido.');
-                                                return;
-                                            }
-                                            const newItems = files.map(f => ({ file: f, previewUrl: URL.createObjectURL(f) }));
-                                            setPartImages(prev => [...prev, ...newItems].slice(0, 5));
-                                        }} />
+                                    <div className="flex gap-2">
+                                        <label className="cursor-pointer flex-1 flex items-center justify-center gap-1 py-2 px-4 rounded-full text-sm font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+                                            <span className="material-icons-round text-[18px]">photo_library</span>
+                                            Galeria
+                                            <input type="file" multiple accept="image/*, image/jpeg, image/png, image/webp" className="hidden"
+                                                onChange={(e) => {
+                                                    const files = Array.from(e.target.files || []);
+                                                    if (files.length + partImages.length > 5) {
+                                                        alert('Máximo de 5 imagens permitido.');
+                                                        return;
+                                                    }
+                                                    const newItems = files.map(f => ({ file: f, previewUrl: URL.createObjectURL(f) }));
+                                                    setPartImages(prev => [...prev, ...newItems].slice(0, 5));
+                                                    e.target.value = '';
+                                                }} />
+                                        </label>
+                                        <label className="cursor-pointer flex-1 flex items-center justify-center gap-1 py-2 px-4 rounded-full text-sm font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+                                            <span className="material-icons-round text-[18px]">photo_camera</span>
+                                            Câmera
+                                            <input type="file" accept="image/*, image/jpeg, image/png, image/webp" capture="environment" className="hidden"
+                                                onChange={(e) => {
+                                                    const files = Array.from(e.target.files || []);
+                                                    if (files.length + partImages.length > 5) {
+                                                        alert('Máximo de 5 imagens permitido.');
+                                                        return;
+                                                    }
+                                                    const newItems = files.map(f => ({ file: f, previewUrl: URL.createObjectURL(f) }));
+                                                    setPartImages(prev => [...prev, ...newItems].slice(0, 5));
+                                                    e.target.value = '';
+                                                }} />
+                                        </label>
+                                    </div>
                                     {partImages.length > 0 && (
                                         <div className="flex gap-2 mt-2 flex-wrap">
                                             {partImages.map((item, idx) => (
