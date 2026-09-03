@@ -452,7 +452,7 @@ export default function Inventory() {
                 <div className="md:col-span-2">
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*, image/jpeg, image/png, image/webp"
                     onChange={(e) => {
                       if (e.target.files && e.target.files[0]) {
                         const file = e.target.files[0];

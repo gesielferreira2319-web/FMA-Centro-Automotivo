@@ -847,7 +847,7 @@ export default function Dismantling() {
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fotos (Máx 5)</label>
-                                    <input type="file" multiple accept="image/*" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                    <input type="file" multiple accept="image/*, image/jpeg, image/png, image/webp" className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                                         onChange={(e) => {
                                             const files = Array.from(e.target.files || []);
                                             if (files.length + partImages.length > 5) {

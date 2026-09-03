@@ -640,7 +640,7 @@ export default function NewServiceOrder() {
                     <span className="material-icons-round text-sm">add_a_photo</span> Fotos de Peças
                     <input 
                       type="file" 
-                      accept="image/*" 
+                      accept="image/*, image/jpeg, image/png, image/webp" 
                       multiple 
                       className="hidden" 
                       onChange={(e) => handleMultiplePhotoUpload(e, partPhotos, partPhotosFiles, setPartPhotos, setPartPhotosFiles, 10)}
@@ -798,7 +798,7 @@ export default function NewServiceOrder() {
                       <input
                         className="hidden"
                         type="file"
-                        accept="image/*"
+                        accept="image/*, image/jpeg, image/png, image/webp"
                         onChange={handlePhotoUpload}
                       />
                     </label>
@@ -811,7 +811,7 @@ export default function NewServiceOrder() {
                       + Adicionar Foto
                       <input 
                         type="file" 
-                        accept="image/*" 
+                        accept="image/*, image/jpeg, image/png, image/webp" 
                         multiple 
                         className="hidden" 
                         onChange={(e) => handleMultiplePhotoUpload(e, additionalVehiclePhotos, additionalVehiclePhotosFiles, setAdditionalVehiclePhotos, setAdditionalVehiclePhotosFiles, 4)}
