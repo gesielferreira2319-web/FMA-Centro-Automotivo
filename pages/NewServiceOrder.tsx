@@ -833,7 +833,7 @@ export default function NewServiceOrder() {
                 </div>
                 <div className="mt-4 mb-4">
                   <div className="flex justify-between items-center mb-2">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Mais Fotos do Veículo (Máx. 4)</label>
+                    <label className="text-xs font-bold text-slate-500 uppercase">Mais Fotos do Veículo</label>
                     <div className="flex gap-2">
                       <label className="text-primary text-xs font-bold cursor-pointer hover:underline flex items-center gap-1">
                         <span className="material-icons-round text-xs">photo_camera</span> Câmera
@@ -842,7 +842,7 @@ export default function NewServiceOrder() {
                           accept="image/*" 
                           capture="environment"
                           className="hidden" 
-                          onChange={(e) => handleMultiplePhotoUpload(e, additionalVehiclePhotos, additionalVehiclePhotosFiles, setAdditionalVehiclePhotos, setAdditionalVehiclePhotosFiles, 4)}
+                          onChange={(e) => handleMultiplePhotoUpload(e, additionalVehiclePhotos, additionalVehiclePhotosFiles, setAdditionalVehiclePhotos, setAdditionalVehiclePhotosFiles, 999)}
                         />
                       </label>
                       <label className="text-slate-500 text-xs font-bold cursor-pointer hover:underline flex items-center gap-1">
@@ -852,7 +852,7 @@ export default function NewServiceOrder() {
                           accept="image/*, image/jpeg, image/png, image/webp" 
                           multiple 
                           className="hidden" 
-                          onChange={(e) => handleMultiplePhotoUpload(e, additionalVehiclePhotos, additionalVehiclePhotosFiles, setAdditionalVehiclePhotos, setAdditionalVehiclePhotosFiles, 4)}
+                          onChange={(e) => handleMultiplePhotoUpload(e, additionalVehiclePhotos, additionalVehiclePhotosFiles, setAdditionalVehiclePhotos, setAdditionalVehiclePhotosFiles, 999)}
                         />
                       </label>
                     </div>
