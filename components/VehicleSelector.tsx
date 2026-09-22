@@ -138,18 +138,40 @@ export function VehicleSelector({ clientId, onSelectVehicle, currentPlate }: Veh
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
-                            <label className="text-xs font-bold text-slate-400 uppercase">Foto do Veículo</label>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => setPhotoFile(e.target.files ? e.target.files[0] : null)}
-                                className="w-full mt-1 text-sm text-slate-500
-                                file:mr-4 file:py-2 file:px-4
-                                file:rounded-lg file:border-0
-                                file:text-sm file:font-semibold
-                                file:bg-primary file:text-white
-                                hover:file:bg-primary/90 cursor-pointer"
-                            />
+                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Foto do Veículo</label>
+                            {photoFile ? (
+                                <div className="flex items-center gap-3 mt-1 p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                    <span className="material-icons-round text-emerald-500">check_circle</span>
+                                    <span className="text-sm text-slate-600 dark:text-slate-300 truncate flex-1">{photoFile.name}</span>
+                                    <button type="button" onClick={() => setPhotoFile(null)} className="text-red-400 hover:text-red-600">
+                                        <span className="material-icons-round text-sm">close</span>
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex gap-2 mt-1">
+                                    <label className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold cursor-pointer hover:bg-primary/90 transition-all shadow-sm">
+                                        <span className="material-icons-round text-sm">photo_camera</span>
+                                        Câmera
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            className="hidden"
+                                            onChange={(e) => setPhotoFile(e.target.files ? e.target.files[0] : null)}
+                                        />
+                                    </label>
+                                    <label className="flex items-center gap-1.5 px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-all">
+                                        <span className="material-icons-round text-sm">photo_library</span>
+                                        Galeria
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => setPhotoFile(e.target.files ? e.target.files[0] : null)}
+                                        />
+                                    </label>
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-400 uppercase">Placa *</label>

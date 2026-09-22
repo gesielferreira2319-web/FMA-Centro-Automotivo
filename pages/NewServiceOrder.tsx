@@ -636,8 +636,18 @@ export default function NewServiceOrder() {
                   <h3 className="text-lg font-bold text-slate-800 dark:text-white">3. Peças e Mão de Obra</h3>
                 </div>
                 <div className="flex gap-2">
-                  <label className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 hover:underline bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 rounded-lg cursor-pointer">
-                    <span className="material-icons-round text-sm">add_a_photo</span> Fotos de Peças
+                  <label className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 hover:underline bg-emerald-50 dark:bg-emerald-900/30 px-3 py-2 rounded-lg cursor-pointer text-xs">
+                    <span className="material-icons-round text-sm">photo_camera</span> Câmera
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="environment"
+                      className="hidden" 
+                      onChange={(e) => handleMultiplePhotoUpload(e, partPhotos, partPhotosFiles, setPartPhotos, setPartPhotosFiles, 10)}
+                    />
+                  </label>
+                  <label className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 hover:underline bg-emerald-50 dark:bg-emerald-900/30 px-3 py-2 rounded-lg cursor-pointer text-xs">
+                    <span className="material-icons-round text-sm">photo_library</span> Galeria
                     <input 
                       type="file" 
                       accept="image/*, image/jpeg, image/png, image/webp" 
@@ -791,32 +801,61 @@ export default function NewServiceOrder() {
                       </div>
                     </div>
                   ) : (
-                    <label className="aspect-video bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col items-center justify-center text-center p-4 transition-all group-hover:border-primary/50 group-hover:bg-primary/5 cursor-pointer">
+                    <div className="aspect-video bg-slate-50 dark:bg-slate-900 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col items-center justify-center text-center p-4 transition-all">
                       <span className="material-icons-round text-4xl text-slate-300 dark:text-slate-600 mb-2">add_a_photo</span>
-                      <p className="text-xs font-semibold text-slate-500">Clique para adicionar foto</p>
-                      <p className="text-[10px] text-slate-400 mt-1">Check-in de entrada visual</p>
-                      <input
-                        className="hidden"
-                        type="file"
-                        accept="image/*, image/jpeg, image/png, image/webp"
-                        onChange={handlePhotoUpload}
-                      />
-                    </label>
+                      <p className="text-xs font-semibold text-slate-500 mb-1">Adicionar foto do veículo</p>
+                      <p className="text-[10px] text-slate-400 mb-3">Check-in de entrada visual</p>
+                      <div className="flex gap-2">
+                        <label className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold cursor-pointer hover:bg-primary/90 transition-all shadow-md">
+                          <span className="material-icons-round text-sm">photo_camera</span>
+                          Câmera
+                          <input
+                            className="hidden"
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={handlePhotoUpload}
+                          />
+                        </label>
+                        <label className="flex items-center gap-1.5 px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer hover:bg-slate-300 dark:hover:bg-slate-600 transition-all">
+                          <span className="material-icons-round text-sm">photo_library</span>
+                          Galeria
+                          <input
+                            className="hidden"
+                            type="file"
+                            accept="image/*, image/jpeg, image/png, image/webp"
+                            onChange={handlePhotoUpload}
+                          />
+                        </label>
+                      </div>
+                    </div>
                   )}
                 </div>
                 <div className="mt-4 mb-4">
                   <div className="flex justify-between items-center mb-2">
                     <label className="text-xs font-bold text-slate-500 uppercase">Mais Fotos do Veículo (Máx. 4)</label>
-                    <label className="text-primary text-xs font-bold cursor-pointer hover:underline">
-                      + Adicionar Foto
-                      <input 
-                        type="file" 
-                        accept="image/*, image/jpeg, image/png, image/webp" 
-                        multiple 
-                        className="hidden" 
-                        onChange={(e) => handleMultiplePhotoUpload(e, additionalVehiclePhotos, additionalVehiclePhotosFiles, setAdditionalVehiclePhotos, setAdditionalVehiclePhotosFiles, 4)}
-                      />
-                    </label>
+                    <div className="flex gap-2">
+                      <label className="text-primary text-xs font-bold cursor-pointer hover:underline flex items-center gap-1">
+                        <span className="material-icons-round text-xs">photo_camera</span> Câmera
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          capture="environment"
+                          className="hidden" 
+                          onChange={(e) => handleMultiplePhotoUpload(e, additionalVehiclePhotos, additionalVehiclePhotosFiles, setAdditionalVehiclePhotos, setAdditionalVehiclePhotosFiles, 4)}
+                        />
+                      </label>
+                      <label className="text-slate-500 text-xs font-bold cursor-pointer hover:underline flex items-center gap-1">
+                        <span className="material-icons-round text-xs">photo_library</span> Galeria
+                        <input 
+                          type="file" 
+                          accept="image/*, image/jpeg, image/png, image/webp" 
+                          multiple 
+                          className="hidden" 
+                          onChange={(e) => handleMultiplePhotoUpload(e, additionalVehiclePhotos, additionalVehiclePhotosFiles, setAdditionalVehiclePhotos, setAdditionalVehiclePhotosFiles, 4)}
+                        />
+                      </label>
+                    </div>
                   </div>
                   {additionalVehiclePhotos.length > 0 && (
                     <div className="grid grid-cols-4 gap-2 mb-4">
