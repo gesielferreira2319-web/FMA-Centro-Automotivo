@@ -116,10 +116,7 @@ export function useServiceOrders() {
     const updateOrder = async (id: string, orderData: Partial<ServiceOrder>): Promise<boolean> => {
         const { error: updateError } = await supabase
             .from('service_orders')
-            .update({
-                ...orderData,
-                updated_at: new Date().toISOString(),
-            })
+            .update(orderData)
             .eq('id', id);
 
         if (updateError) {
