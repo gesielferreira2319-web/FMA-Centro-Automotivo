@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import Backup from './Backup';
 
 interface SettingsData {
     id?: number;
@@ -56,6 +57,20 @@ export default function Settings() {
     const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
     const [deletePassword, setDeletePassword] = useState('');
     const [deleteLoading, setDeleteLoading] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab');
+        if (tabParam === 'backup' || tabParam === 'dados') {
+            setActiveTab('Backup & Dados');
+        } else if (tabParam === 'financeiro') {
+            setActiveTab('Financeiro');
+        } else if (tabParam === 'seguranca') {
+            setActiveTab('Segurança');
+        } else if (tabParam === 'usuarios') {
+            setActiveTab('Usuários');
+        }
+    }, []);
 
     useEffect(() => {
         fetchSettings();
@@ -391,6 +406,12 @@ export default function Settings() {
                         </div>
                     </div>
                 );
+            case 'Backup & Dados':
+                return (
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-in fade-in slide-in-from-right-4">
+                        <Backup isEmbedded={true} />
+                    </div>
+                );
             case 'Segurança':
                 return (
                     <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm animate-in fade-in slide-in-from-right-4">
@@ -635,7 +656,7 @@ export default function Settings() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                 {/* Sidebar Navigation */}
                 <div className="space-y-2 md:col-span-1">
-                    {['Geral', 'Financeiro', 'Segurança', 'Usuários'].map((item) => (
+                    {['Geral', 'Financeiro', 'Backup & Dados', 'Segurança', 'Usuários'].map((item) => (
                         <button
                             key={item}
                             onClick={() => setActiveTab(item)}
@@ -654,28 +675,30 @@ export default function Settings() {
                 <div className="md:col-span-3 space-y-6">
                     {renderContent()}
 
-                    <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                        <button className="px-6 py-3 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors order-last sm:order-first">
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="px-8 py-3 bg-primary text-white rounded-xl font-bold shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-70 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-                        >
-                            {saving ? (
-                                <>
-                                    <span className="material-icons-round animate-spin text-sm">refresh</span>
-                                    Salvando...
-                                </>
-                            ) : (
-                                <>
-                                    <span className="material-icons-round">save</span>
-                                    Salvar Alterações
-                                </>
-                            )}
-                        </button>
-                    </div>
+                    {(activeTab === 'Geral' || activeTab === 'Financeiro') && (
+                        <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                            <button className="px-6 py-3 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors order-last sm:order-first">
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="px-8 py-3 bg-primary text-white rounded-xl font-bold shadow-xl shadow-primary/20 hover:brightness-110 disabled:opacity-70 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                            >
+                                {saving ? (
+                                    <>
+                                        <span className="material-icons-round animate-spin text-sm">refresh</span>
+                                        Salvando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="material-icons-round">save</span>
+                                        Salvar Alterações
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

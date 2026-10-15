@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useClients, Client } from '../contexts/ClientContext';
 import { supabase } from '../lib/supabase';
 import { printOrder as printOrderUtil, downloadOrder, sendOrderToWhatsApp } from '../utils/orderPrint';
+import { exportSingleModuleExcel } from '../utils/backupExcel';
 
 interface ClientHistory {
     sales: any[];
@@ -342,13 +343,23 @@ export default function Clients() {
                     <h2 className="text-3xl font-display font-bold text-primary dark:text-white">Clientes</h2>
                     <p className="text-slate-500 dark:text-slate-400">Gerenciamento da base de clientes e veículos.</p>
                 </div>
-                <button
-                    onClick={openNewModal}
-                    className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg font-semibold shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 w-fit"
-                >
-                    <span className="material-icons-round">person_add</span>
-                    Novo Cliente
-                </button>
+                <div className="flex items-center gap-3 w-fit">
+                    <button
+                        onClick={() => exportSingleModuleExcel('clients')}
+                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-3 rounded-lg font-semibold shadow-md transition-all active:scale-95"
+                        title="Exportar Lista de Clientes para Excel"
+                    >
+                        <span className="material-icons-round text-lg">table_view</span>
+                        Exportar Excel
+                    </button>
+                    <button
+                        onClick={openNewModal}
+                        className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg font-semibold shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
+                    >
+                        <span className="material-icons-round">person_add</span>
+                        Novo Cliente
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">

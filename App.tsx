@@ -8,6 +8,7 @@ import Inventory from './pages/Inventory';
 import Financial from './pages/Financial';
 import Clients from './pages/Clients';
 import Settings from './pages/Settings';
+import Backup from './pages/Backup';
 import NewPartsSales from './pages/NewPartsSales';
 import Dismantling from './pages/Dismantling';
 import Install from './pages/Install';
@@ -128,6 +129,7 @@ export default function App() {
             <Route path="/inventory" element={<ProtectedRoute><Layout><Inventory /></Layout></ProtectedRoute>} />
             <Route path="/financial" element={<ProtectedRoute><Layout><Financial /></Layout></ProtectedRoute>} />
             <Route path="/clients" element={<ProtectedRoute><Layout><Clients /></Layout></ProtectedRoute>} />
+            <Route path="/backup" element={<ProtectedRoute><Layout><Backup /></Layout></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

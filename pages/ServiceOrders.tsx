@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useServiceOrders, ServiceOrder } from '../hooks/useServiceOrders';
 import { printOrder, downloadOrder, sendOrderToWhatsApp, printBoletos, downloadBoletos, sendBoletoToWhatsApp } from '../utils/orderPrint';
+import { exportSingleModuleExcel } from '../utils/backupExcel';
 import { DropdownButton } from '../components/DropdownButton';
 import { useSettings } from '../hooks/useSettings';
 
@@ -75,13 +76,23 @@ export default function ServiceOrders() {
           <h2 className="text-3xl font-display font-bold text-primary dark:text-white">Ordens de Serviço</h2>
           <p className="text-slate-500 dark:text-slate-400">Gerencie todos os atendimentos da oficina.</p>
         </div>
-        <Link
-          to="/service-orders/new"
-          className="flex items-center justify-center gap-2 bg-secondary text-white px-6 py-3 rounded-lg font-semibold shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95 w-full md:w-fit"
-        >
-          <span className="material-icons-round">add</span>
-          Nova OS
-        </Link>
+        <div className="flex items-center gap-3 w-full md:w-fit">
+          <button
+            onClick={() => exportSingleModuleExcel('service_orders')}
+            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-3 rounded-lg font-semibold shadow-md transition-all active:scale-95 flex-1 md:flex-initial"
+            title="Exportar Ordens de Serviço para Excel"
+          >
+            <span className="material-icons-round text-lg">table_view</span>
+            Exportar Excel
+          </button>
+          <Link
+            to="/service-orders/new"
+            className="flex items-center justify-center gap-2 bg-secondary text-white px-6 py-3 rounded-lg font-semibold shadow-xl shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-95 flex-1 md:flex-initial"
+          >
+            <span className="material-icons-round">add</span>
+            Nova OS
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useInventory, InventoryItem, calculateProfitMargin, uploadImage } from '../hooks/useInventory';
+import { exportSingleModuleExcel } from '../utils/backupExcel';
 
 export default function Inventory() {
   const { items, loading, stats, addItem, updateItem, deleteItem } = useInventory(false);
@@ -130,13 +131,23 @@ export default function Inventory() {
           <h2 className="text-3xl font-display font-bold text-primary dark:text-white">Controle de Estoque</h2>
           <p className="text-slate-500 dark:text-slate-400">Gerencie peças, suprimentos e níveis de estoque em tempo real.</p>
         </div>
-        <button
-          onClick={openAddModal}
-          className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg font-semibold shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95 w-fit"
-        >
-          <span className="material-icons-round">add</span>
-          Nova Peça
-        </button>
+        <div className="flex items-center gap-3 w-fit">
+          <button
+            onClick={() => exportSingleModuleExcel('inventory')}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-3 rounded-lg font-semibold shadow-md transition-all active:scale-95"
+            title="Exportar Estoque para Excel"
+          >
+            <span className="material-icons-round text-lg">table_view</span>
+            Exportar Excel
+          </button>
+          <button
+            onClick={openAddModal}
+            className="flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-lg font-semibold shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
+          >
+            <span className="material-icons-round">add</span>
+            Nova Peça
+          </button>
+        </div>
       </header>
 
       <section className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm mb-6 border border-slate-200 dark:border-slate-700">

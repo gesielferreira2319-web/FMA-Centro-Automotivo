@@ -18,6 +18,7 @@ const navItems = [
   { name: 'Peças & Estoque', icon: 'inventory_2', path: '/inventory' },
   { name: 'Financeiro', icon: 'payments', path: '/financial' },
   { name: 'Clientes', icon: 'people', path: '/clients' },
+  { name: 'Backup & Dados', icon: 'cloud_download', path: '/backup' },
   { name: 'Configurações', icon: 'settings', path: '/settings' },
 ];
 

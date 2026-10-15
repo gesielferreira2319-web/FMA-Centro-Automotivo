@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, Legend } from 'recharts';
 import { supabase } from '../lib/supabase';
+import { exportSingleModuleExcel } from '../utils/backupExcel';
 
 // --- TYPES ---
 type ViewMode = 'dashboard' | 'payable' | 'receivable' | 'reports';
@@ -1327,18 +1328,28 @@ export default function Financial() {
                     <p className="text-slate-500 text-sm mt-1">Controle de caixa, contas e resultados.</p>
                 </div>
 
-                <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex items-center">
-                    <select
-                        value={dateRange}
-                        onChange={(e) => setDateRange(e.target.value as DateRange)}
-                        className="px-4 py-2 text-sm font-medium text-slate-600 bg-transparent outline-none cursor-pointer hover:text-slate-800"
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => exportSingleModuleExcel('accounts_payable')}
+                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all active:scale-95"
+                        title="Exportar Contas a Pagar para Excel"
                     >
-                        <option value="month">Este Mês</option>
-                        <option value="last-month">Mês Passado</option>
-                        <option value="quarter">Trimestre</option>
-                        <option value="year">Este Ano</option>
-                        <option value="all">Tudo</option>
-                    </select>
+                        <span className="material-icons-round text-base">table_view</span>
+                        Exportar Excel
+                    </button>
+                    <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex items-center">
+                        <select
+                            value={dateRange}
+                            onChange={(e) => setDateRange(e.target.value as DateRange)}
+                            className="px-4 py-2 text-sm font-medium text-slate-600 bg-transparent outline-none cursor-pointer hover:text-slate-800"
+                        >
+                            <option value="month">Este Mês</option>
+                            <option value="last-month">Mês Passado</option>
+                            <option value="quarter">Trimestre</option>
+                            <option value="year">Este Ano</option>
+                            <option value="all">Tudo</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 

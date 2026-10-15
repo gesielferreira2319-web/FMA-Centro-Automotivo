@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useInventory, uploadImage } from '../hooks/useInventory';
 import { useSales } from '../hooks/useSales';
 import { UsedPartsSales } from '../components/UsedPartsSales';
+import { exportSingleModuleExcel } from '../utils/backupExcel';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, Legend } from 'recharts';
 
 // KPI Card Component (Local)
@@ -383,7 +384,15 @@ export default function Dismantling() {
                     <h2 className="text-3xl font-display font-bold text-primary dark:text-white">Desmanche</h2>
                     <p className="text-slate-500 dark:text-slate-400">Gestão completa de compras, vendas e desmontagem.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => exportSingleModuleExcel('dismantling')}
+                        className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-500 transition flex items-center gap-2 shadow-sm"
+                        title="Exportar Veículos de Desmanche para Excel"
+                    >
+                        <span className="material-icons-round text-lg">table_view</span>
+                        Exportar Excel
+                    </button>
                     <button onClick={() => setShowSalesModal(true)} className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition flex items-center gap-2">
                         <span className="material-icons-round">point_of_sale</span>
                         Venda Balcão
